@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words.
 
+## 2026-10-29 — Pin adopted model; regional retest
+
+Branch `pin-adopted`, base `main` (4d7fa70). Pinned `player_round_glicko_rookie_weights` (rookie 200/400, tier-3 K 0.75) as `models.ADOPTED`; new `--baseline` (default ADOPTED) adds candidate − baseline paired tables by section in both stages; existing benchmark tests pass `--baseline team_elo`. Regional layer over the adopted model rejected: stage-2 maps −0.00044 (significant, below 0.0005), Kalshi blended unchanged (ledger). Run: 453 s for three models × two layers. Holdout not opened: no maps on or after 2026-11-01. Checks: ruff, `uv run pytest -q`.
+
 ## 2026-10-29 — Pinned base grid
 
 Branch `bench-speed`, base `elo-candidates` (0cdba0a). `player_round_glicko` now scores its stage-1 winner (`models.PINNED`: K=32, τ=0.5, rd_new=350, info=0.125, teammates) instead of re-searching 640 combinations every run; `--full-grid` restores the search, and `--k-grid` still overrides K. Two-model run (`team_elo,player_round_glicko`) 517 s → 214 s with identical stage-2 results. Candidate verdicts in the ledger: rookie 200/400 + tier-3 K 0.75 adopted (stage 2 −0.0068 maps); calibration, online K, tier moves rejected; regional pending intervals. S3 seeded (82,216 objects). Checks: ruff, `uv run pytest -q` (267 passed).
