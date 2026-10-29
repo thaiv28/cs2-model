@@ -1,0 +1,1 @@
+{"player_round_glicko": {"k": 32, "tau": 0.5, "rd_new": 350, "rd_info": 0.125, "new_player": "teammates", "series_temperature": {"3": 0.83, "5": 0.62}, "fit_through": "2025-12-31"}}

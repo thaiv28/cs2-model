@@ -8,12 +8,15 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 
 | Path | Purpose |
 |---|---|
-| `promcs/main.py` | CLI entry; mounts `kalshi` and `liquipedia` |
+| `promcs/main.py` | CLI entry; mounts `kalshi`, `liquipedia` and `export` |
 | `promcs/kalshi/api.py` | Public HTTP client, pacing, retries and pagination |
 | `promcs/kalshi/collect.py` | Raw catalog, trade, candle and book files |
 | `promcs/liquipedia/` | Rate-limited API queries, incremental raw cache and CLI |
 | `promcs/liquipedia/parse.py` | Pure balanced-template, infobox, match/map and roster parser (version 1) |
 | `promcs/liquipedia/regions.py` | Tournament host country → macro region |
+| `promcs/feed.py`, `promcs/quotes.py` | Site feed orchestration, frozen calls and shared candle rules |
+| `promcs/ratings/elo_weights.json` | Existing stage-1 fit and string-keyed series temperatures |
+| `tests/test_feed.py` | Offline feed, schedule, freeze, join and market checks |
 | `promcs/ratings/` | Team/player Elo, round conversion, chronological replay, regional layers |
 | `promcs/evaluation.py`, `backtest.py`, `blend.py` | Scoring, match bootstrap, execution simulation, causal market blend |
 | `scripts/evaluate_elo.py`, `series_independence.py` | Two-stage benchmark and series diagnostics |
@@ -96,3 +99,9 @@ Kalshi tables may be absent: outcome stages still run, stdout/report explicitly 
 Returns buy the greater positive after-fee edge. Fees round up to cents per order. Flat stake is $1 plus fees; ROI divides profit by outlay. Kelly starts at $50 with Prometheus caps: 10% capital/$250 per fixture, $250/order, $1k exposure, $2k/day; same-day bets size on opening capital and settle together. Depth caps use half acceptable-price tape volume over six hours after quote; missing tape means no fills. Reports pair unlimited/depth-capped returns. Monthly logistic blends fit separate market/model coefficients by kind using earlier validation months, excluding holdout; fewer than 100 training rows use market unchanged and are excluded from blended metrics.
 
 Layers retain fit/apply/describe factories with connection/lineup context. --layers none defaults to identity. regional fits logit(p′)=s·logit(p)+e[home1]−e[home2] on stage-1 cross-region rows, seven zero-sum effects with ridge 4; fewer than 50 eligible rows is identity. Homes are causal; validation outcomes never fit layers. No form layer: CS2 player_maps has no per-player statistics.
+
+## Site feed
+
+`promcs export [--out PATH] [--no-fetch]` atomically writes `PROMCS_DATA/feed/cs2.json` (default root `data/`) for Prometheus. Replays player_round_glicko with the stored stage-1 weights; no refit. Upcoming named teams use latest rated lineups; unknown/even lengths emit null and use untempered Bo3 odds. Active DB events within the UTC date window supply revision-content queries in batches of 50. Raw snapshots go to `upcoming/latest.json.gz`; `--no-fetch` uses that snapshot and omits current prices. Raw Liquipedia/Kalshi caches stay read-only.
+
+`predictions.json` saves upcoming calls by page/team IDs/ordinal, refreshes future calls and prunes disappeared future entries. Calls freeze once their saved start passes. Results join the closest unordered team pair within 36 hours once, flipping reversed probabilities; otherwise replay reconstructs them. Page results require a saved call. Missing started calls show live for six hours, then pending finals for seven days. Current Kalshi series prices use the offline linker's passes/window plus DB aliases, spread ≤0.10; finals use cached prestart candle mids. Only present sections are emitted. Ratings depend on crawl + setup_db freshness; tournaments absent from the DB are not scanned; TBD sides are omitted.

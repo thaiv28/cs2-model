@@ -264,11 +264,12 @@ def _orientations(event, match, method, aliases):
     return choices
 
 
-def link(kalshi_events, liquipedia_matches):
+def link(kalshi_events, liquipedia_matches, initial_aliases=None):
     """Iterate confident series links, then fuzzy-match and inherit map links.
 
     Matches are dictionaries; optional ``maps`` holds played map dictionaries.
     A map-only catalog supplies a representative event for the absent series.
+    Optional initial_aliases supplies previously learned competitor/team IDs.
     """
     events, matches = list(kalshi_events), list(liquipedia_matches)
     timed = sorted(
@@ -311,14 +312,16 @@ def link(kalshi_events, liquipedia_matches):
             else "no team match"
         )
     resolved, evidence = {}, defaultdict(list)
-    aliases = {}
+    aliases = dict(initial_aliases or {})
 
     def learn():
-        return {
+        learned = {
             cid: rows[0][1]
             for cid, rows in evidence.items()
             if len({r[1] for r in rows}) == 1
         }
+
+        return {**(initial_aliases or {}), **learned}
 
     def run_pass(method):
         for key, event in representatives.items():

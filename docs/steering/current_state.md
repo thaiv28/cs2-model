@@ -2,6 +2,8 @@
 
 ## Status
 
+`promcs export` writes the site feed with frozen calls, replayed results and Kalshi prices; `--no-fetch` runs offline. Ratings require a fresh crawl + setup_db; only DB tournaments are scanned; TBD sides are omitted.
+
 2026-10-29: Kalshi collector, Liquipedia crawler, offline SQLite build, Kalshi ↔ Liquipedia linking, ratings and the two-stage benchmark are implemented and tested. Real cache: 4,713 pages; DB: 58,034 matches and 119,185 maps, zero parse errors. Kalshi: 41,545 markets (backfill complete); series linked 5,138/7,907, maps 9,131/12,865; result agreements 28,362/28,396. Stage 1 (73,819 maps): player_round_glicko map/series log loss 0.640438/0.619448; team_elo 0.662311/0.647815. Kalshi validation (full backfill): player_round_glicko blended series −0.0118 vs Kalshi (significant; tiers 2–3), raw level; maps no edge; see the research ledger.
 
 ## Known limits
@@ -18,4 +20,5 @@
 1. Seed S3 (`promcs kalshi manifest`, `scripts/kalshi_data.sh push`) so the scheduled collector runs; review the unlinked "no team match" events.
 2. Then, one at a time through the model change rules: rookie discount, form layer (needs per-player stats: find a source), region offsets/regional calibration, map strength.
 3. Collect legacy `KXCSGOGAME`/`KXCSGOMAP` if the backfill shows they hold priced 2025 matches.
-4. Per-match lineups (Liquipedia LPDB by approval, or GRID Open Access) if stand-ins prove costly.
+4. Resolve Liquipedia team-template aliases (`gl`/`gamerlegion`, `vit`/`vitality`) to one team: they split team history, and cardless keys show as names (`navi`, `tl`) in the site feed.
+5. Per-match lineups (Liquipedia LPDB by approval, or GRID Open Access) if stand-ins prove costly.

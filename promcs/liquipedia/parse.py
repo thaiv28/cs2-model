@@ -362,3 +362,57 @@ def parse_matches(
                 )
             )
     return matches
+
+
+@dataclass
+class ScheduledMatch:
+    title: str
+    ordinal: int
+    team1_key: str
+    team2_key: str
+    start_utc: datetime
+    time_known: int
+    best_of: int | None
+    maps: list[tuple[int, int]]
+    finished: bool
+
+
+def parse_scheduled(title, wikitext) -> list[ScheduledMatch]:
+    """Read dated, named Match blocks, including those without played maps."""
+    matches = []
+    for ordinal, block in enumerate(blocks(wikitext, "Match")):
+        p = params(block)
+        teams = []
+        for side in (1, 2):
+            opponent = p.get(f"opponent{side}", "")
+            b = blocks(opponent, "TeamOpponent")
+            pos = positional(b[0]) if len(b) == 1 and opponent.strip() == b[0] else []
+            teams.append(pos[0].strip().lower() if pos else "")
+        if any(t in ("", "tbd", "bye") for t in teams):
+            continue
+        dt, known, _ = parse_date(p.get("date", ""))
+        if dt is None:
+            continue
+        mapkeys = [k for k in p if re.fullmatch(r"map\d+", k)]
+        maps = []
+        for key in sorted(mapkeys, key=lambda k: int(k[3:])):
+            order = int(key[3:])
+            if order > 9:
+                continue
+            for b in blocks(p[key], "Map")[:1]:
+                if game := _map(order, b):
+                    maps.append((game.score1, game.score2))
+        matches.append(
+            ScheduledMatch(
+                title,
+                ordinal,
+                *teams,
+                dt,
+                known,
+                _number(p, "bestof") if "bestof" in p else len(mapkeys) or None,
+                maps,
+                p.get("finished", "").strip().lower()
+                not in ("", "0", "false", "no", "skip"),
+            )
+        )
+    return matches

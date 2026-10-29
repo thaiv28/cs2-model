@@ -290,7 +290,11 @@ def test_end_to_end_variants_and_weights(database, tmp_path, monkeypatch):
     weights = json.loads((tmp_path / "promcs/ratings/elo_weights.json").read_text())
     assert set(weights) == {"team_elo", "team_round", "player_binary_region"}
     for name, params in selected.items():
-        assert weights[name] == {**params, "fit_through": "2023-01-01"}
+        assert weights[name] == {
+            **params,
+            "series_temperature": {"1": 1.0},
+            "fit_through": "2023-01-01",
+        }
     # Future rows must not affect the tuning leaderboard or chosen parameters.
     leaderboard = report.split("### Leaderboard")[1].split("Kalshi uses")[0]
     with sqlite3.connect(path) as conn:
