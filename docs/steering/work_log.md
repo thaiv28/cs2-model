@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words.
 
+## 2026-10-29 — Ratings and benchmark port
+
+Branch `ratings`, base `main` (`99fdabc`). Ported team/player Elo, RD/rookie/moves, seven-region causal layer, evaluation, blend, execution backtest and two-stage/series CLIs; adapted CS2 reads, tiers and dates. Missing Kalshi tables explicitly skip market sections. Added synthetic tests and aligned docs. Checks: pytest 204 passed (12.57 s unloaded, 27.18 s during benchmark; baseline 109/1.01 s, +11.56 s CI work); ruff format/check and diff check passed. Used `UV_NO_SYNC=true UV_OFFLINE=true` to avoid uv sync's local panic. Offline rebuild passed (25.53 s); rebuild plus benchmark 227.81 s, evaluation 201.85 s. Stage 1, 73,819 maps: player_round_glicko map/series loss 0.640438/0.619448 (K32, teammates, RD350/info0.125, τ0.5); team_elo 0.662311/0.647815 (K32). Scratch report only; stage-2 outcomes scored. Limits: Kalshi validation pending links; no stats/form layer; holdout closed.
+
 ## 2026-10-29 — Liquipedia database
 
 Branch `liquipedia-db`, base `main` (`448bf13`). Built pure wikitext/roster/region parsers, stable-ID SQLite schema, offline loader and rebuild script; added fixture and synthetic tests and updated layout/status docs. Real-cache build: pages=4713 events=4713 excluded=65; matches=58034 maps=119185 duplicates=1; both_rosters=46914 (80.8%); unknown_tz=0 after adding 29 zones and `UTC±N` (was 2,481) dateless=183 map_order_gt9=0 players_both_sides=64; parse_errors=0, 24 s. Checks: `uv run pytest -q` 109 passed (51 added); ruff format/check passed; real DB foreign-key and map-ID checks passed. Limits: tournament rosters miss stand-ins; unknown zones assume UTC; international rule is approximate.
