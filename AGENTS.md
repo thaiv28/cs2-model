@@ -33,7 +33,8 @@ A pre-map trading model for CS2 esports: player-based round Elo, a map layer, pr
 uv sync
 uv run pytest -q
 uv run ruff format && uv run ruff check
-uv run promcs --help                 # kalshi group; liquipedia comes next
+uv run promcs --help                     # kalshi and liquipedia groups
+uv run promcs liquipedia crawl            # Liquipedia CS2 pages (first run ~5 min)
 ```
 
 `data/` and `db/` are build artifacts; never commit them.
