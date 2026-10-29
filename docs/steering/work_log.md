@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words.
 
+## 2026-10-29 — Liquipedia database
+
+Branch `liquipedia-db`, base `main` (`448bf13`). Built pure wikitext/roster/region parsers, stable-ID SQLite schema, offline loader and rebuild script; added fixture and synthetic tests and updated layout/status docs. Real-cache build: pages=4713 events=4713 excluded=65; matches=58034 maps=119185 duplicates=1; both_rosters=46914 (80.8%); unknown_tz=0 after adding 29 zones and `UTC±N` (was 2,481) dateless=183 map_order_gt9=0 players_both_sides=64; parse_errors=0, 24 s. Checks: `uv run pytest -q` 109 passed (51 added); ruff format/check passed; real DB foreign-key and map-ID checks passed. Limits: tournament rosters miss stand-ins; unknown zones assume UTC; international rule is approximate.
+
 ## 2026-10-29 — Liquipedia contact in User-Agent
 
 The crawler's User-Agent now carries the owner's email as Liquipedia's API terms ask (`http.CONTACT`); `LIQUIPEDIA_CONTACT` still overrides it. Checks: `uv run pytest -q`, ruff format/check.

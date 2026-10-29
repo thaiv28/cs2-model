@@ -31,6 +31,7 @@ A pre-map trading model for CS2 esports: player-based round Elo, a map layer, pr
 
 ```bash
 uv sync
+uv run bash scripts/setup_db.sh        # rebuild db/cs2.db from the Liquipedia cache
 uv run pytest -q
 uv run ruff format && uv run ruff check
 uv run promcs --help                     # kalshi and liquipedia groups
