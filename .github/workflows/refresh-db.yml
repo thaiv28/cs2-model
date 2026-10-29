@@ -48,7 +48,10 @@ jobs:
           mkdir -p data/liquipedia data/kalshi
           # S3 restores remote mtimes, so also compare inventories for top-ups.
           find data/liquipedia data/kalshi -type f -printf '%p %s %T@\n' | sort > /tmp/raw-before
-          aws s3 sync "s3://$BUCKET/cs2-model/liquipedia" data/liquipedia --only-show-errors
+          # Only this workflow writes the Liquipedia objects, so a restored cache is current.
+          if [ -z "${{ steps.raw.outputs.cache-matched-key }}" ]; then
+            aws s3 sync "s3://$BUCKET/cs2-model/liquipedia" data/liquipedia --only-show-errors
+          fi
           aws s3 sync "s3://$BUCKET/cs2-model/kalshi" data/kalshi --only-show-errors --exclude "books/*"
           uv run promcs liquipedia crawl | tee /tmp/crawl-summary
           aws s3 sync data/liquipedia "s3://$BUCKET/cs2-model/liquipedia" --size-only --only-show-errors

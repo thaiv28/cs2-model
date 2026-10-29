@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-10-29 — refresh-db: no Liquipedia S3 listing on a cache hit
+
+Branch `game-candidates`, base `main`. The Liquipedia `aws s3 sync` from S3 now runs only on a raw-cache miss (only this workflow writes those objects, so a restored cache is current); Kalshi data, written by the collector, still syncs every run. Matches valorant-model, where the same listing took 7.5 min. Checks: workflow tests, YAML parse.
+
 ## 2026-10-29 — Refresh speed (requested branch `refresh-speed`, base `main`)
 
 Added an exact input-hash DB cache and state `inputs` metadata check: unchanged hours skip rebuilds and snapshots. Cold raw-cache misses try `cs2-model/seed/raw.tar.zst` before sync; successful raw-cache saves refresh missing or week-old seeds. Rebuilds publish the walk-forward artifact to `cs2-model/feed/blend_artifact.json` for Prometheus. Raw saves precede DB builds; summaries report cache results, crawl, build seconds and snapshot count. Added offline workflow safeguards.
