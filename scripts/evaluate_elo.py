@@ -32,7 +32,7 @@ from promcs.kalshi.collect import SERIES, data_dir
 from promcs.quotes import PRESTART, QuoteRule, candle_quote
 from promcs.quotes import TRADEABLE as TRADEABLE
 from promcs.ratings.layers import LAYERS
-from promcs.ratings.models import MODELS, PARAM_GRIDS, PINNED
+from promcs.ratings.models import ADOPTED, MODELS, PARAM_GRIDS, PINNED
 from promcs.ratings.regions import macro_region
 from promcs.ratings.replay import load_lineups, load_maps, replay
 
@@ -460,6 +460,11 @@ def main(argv=None):
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 1, 8))
     parser.add_argument("--k-grid", help="optional K grid override for every model")
     parser.add_argument(
+        "--baseline",
+        default=ADOPTED,
+        help="model each candidate is paired against (default: the adopted model)",
+    )
+    parser.add_argument(
         "--full-grid",
         action="store_true",
         help="re-search pinned models' full grids (models.PINNED)",
@@ -536,9 +541,18 @@ def main(argv=None):
         name not in MODELS or name == "coin" for name in report_names
     ):
         parser.error("unknown rating model in --report-models")
+    if args.baseline not in MODELS or args.baseline == "coin":
+        parser.error("unknown rating model in --baseline")
     extras = report_names if report_names is not None else ["player_round_glicko"]
     names = list(
-        dict.fromkeys(["team_elo", *(n for n in requested if n != "coin"), *extras])
+        dict.fromkeys(
+            [
+                "team_elo",
+                args.baseline,
+                *(n for n in requested if n != "coin"),
+                *extras,
+            ]
+        )
     )
     if not args.db.is_file():
         parser.error(f"database does not exist: {args.db}")
@@ -603,6 +617,7 @@ def main(argv=None):
                     [
                         "team_elo",
                         "player_round_glicko",
+                        args.baseline,
                         *ranked[:2],
                     ]
                 )
@@ -809,6 +824,26 @@ def main(argv=None):
                     report.append(
                         comparison_table(
                             frame, "baseline_p", "team_elo", name, by_section=False
+                        )
+                    )
+                for name in window_names:
+                    if name in ("team_elo", args.baseline):
+                        continue
+                    frame = frames[name].merge(
+                        frames[args.baseline][["game_id", "p"]].rename(
+                            columns={"p": "baseline_p"}
+                        ),
+                        on="game_id",
+                        validate="one_to_one",
+                    )
+                    report.append(f"{name} − {args.baseline} (paired log loss):")
+                    report.append(
+                        comparison_table(
+                            frame,
+                            "baseline_p",
+                            args.baseline,
+                            name,
+                            by_section=not tuning,
                         )
                     )
             if tuning:

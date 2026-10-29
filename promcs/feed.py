@@ -22,13 +22,13 @@ from promcs.link import events_from_markets, link, market_row
 from promcs.liquipedia.http import Fetcher
 from promcs.liquipedia.parse import blocks, params, parse_scheduled, positional
 from promcs.quotes import candle_quote
-from promcs.ratings.models import MODELS
+from promcs.ratings.models import ADOPTED, MODELS
 from promcs.ratings.replay import load_lineups, load_maps
 
 STATE_VERSION = 1
-# The adopted model (docs/research/README.md); its weights and series temperatures
-# come from elo_weights.json (`evaluate_elo.py --write-weights`).
-MODEL = "player_round_glicko_rookie_weights"
+# The adopted model; its weights and series temperatures come from
+# elo_weights.json (`evaluate_elo.py --write-weights`).
+MODEL = ADOPTED
 
 SECTIONS = [
     ("INTL", "International"),

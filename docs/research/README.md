@@ -4,6 +4,10 @@ Every model idea tested, adopted or not, newest first, with its numbers. These p
 
 ## Two-stage runs
 
+2026-10-29 Regional layer retest over the adopted model (fourth stage-2 look; `--baseline` paired tables). Fit on 5,211 cross-region stage-1 maps: s = 0.76 (map), effects EU +0.44, CIS +0.24, AS +0.16, NA +0.10, SA +0.04, OCE −0.45, AF −0.53.
+
+- **Rejected (below the 0.0005 bar, no market gain).** Stage-2 maps −0.00044 [−0.00084, −0.00001]; series −0.00077 [−0.00145, −0.00010]; tier2 significant, no section worse. Vs Kalshi: raw series −0.0046 (adopted −0.0041), blended −0.0144 (−0.0145), blended flat ROI +8.7% (+9.0%).
+
 2026-10-29 Elo candidates (third stage-2 look). Map log loss, candidate − base, paired bootstrap by match; base `player_round_glicko` (K 32, τ 0.5, rd_new 350, info 0.125). Kalshi columns: raw / blended series vs Kalshi, blended series flat ROI (base +0.0003 / −0.0118 / +8.0%).
 
 - **Adopted: rookie discount 200 / 400 maps + tier-3 K × 0.75** (`player_round_glicko_rookie_weights`, online_k 1). Stage 1 −0.0096 [−0.0106, −0.0086], stage 2 −0.0068 [−0.0082, −0.0054]; tier3 −0.0102 significant, tier1 −0.0021 and tier2 +0.0002 n.s. Tier-3 K over rookie alone: stage 1 −0.0015, stage 2 −0.0016 [−0.0020, −0.0012], significant in every tier on both. Kalshi −0.0041 / −0.0145 / +9.0%.

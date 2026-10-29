@@ -250,6 +250,8 @@ def test_end_to_end_variants_and_weights(database, tmp_path, monkeypatch):
         "2024-01-01",
         "--validate-from",
         "2024-01-01",
+        "--baseline",
+        "team_elo",
         "--k-grid",
         "16,32",
         "--jobs",
@@ -289,7 +291,7 @@ def test_end_to_end_variants_and_weights(database, tmp_path, monkeypatch):
     monkeypatch.setattr(benchmark, "REPO", tmp_path)
     (tmp_path / "promcs/ratings").mkdir(parents=True)
     monkeypatch.setenv("PROMCS_DATA", str(data))
-    args = command[2:] + ["--jobs", "1", "--write-weights"]
+    args = command[2:] + ["--jobs", "1", "--write-weights", "--baseline", "team_elo"]
     selected = benchmark.main(args)
     weights = json.loads((tmp_path / "promcs/ratings/elo_weights.json").read_text())
     assert set(weights) == {"team_elo", "team_round", "player_binary_region"}
@@ -329,6 +331,8 @@ def test_empty_windows_and_invalid_selection(database, tmp_path, monkeypatch):
         "team_elo",
         "--jobs",
         "1",
+        "--baseline",
+        "team_elo",
         "--k-grid",
         "32",
     ]
@@ -369,6 +373,8 @@ def test_baseline_always_included(database, tmp_path, monkeypatch):
             "team_elo,team_round",
             "--jobs",
             "1",
+            "--baseline",
+            "team_elo",
             "--k-grid",
             "32",
         ]
@@ -401,6 +407,8 @@ def test_glicko_report_default_and_explicit_models(
         "team_elo",
         "--jobs",
         "1",
+        "--baseline",
+        "team_elo",
         "--k-grid",
         "12",
     ]
@@ -545,6 +553,8 @@ def test_end_to_end_fitted_blend(database, tmp_path, monkeypatch):
             "team_elo",
             "--jobs",
             "1",
+            "--baseline",
+            "team_elo",
             "--k-grid",
             "32",
             "--blend-min",
@@ -670,6 +680,8 @@ def test_stage_separation_layers_and_default_market_window(
         "team_elo",
         "--layers",
         "none,shift",
+        "--baseline",
+        "team_elo",
         "--k-grid",
         "16,32",
         "--jobs",
@@ -853,6 +865,8 @@ def test_robustness_and_series_report_reuse_frozen_models(
         "none",
         "--jobs",
         "1",
+        "--baseline",
+        "team_elo",
         "--k-grid",
         "16",
         "--tune-from",
@@ -1022,6 +1036,8 @@ def test_outcome_report_without_kalshi_tables(database, tmp_path, capsys):
             "team_elo",
             "--report-models",
             "team_elo",
+            "--baseline",
+            "team_elo",
             "--k-grid",
             "32",
             "--jobs",
@@ -1053,3 +1069,9 @@ def test_pinned_grid_and_full_grid():
     full = benchmark.parameter_grid("player_round_glicko", full=True)
     assert len(full) == 640 and pinned in full
     assert len(benchmark.parameter_grid("team_elo")) == 6
+
+
+def test_adopted_model_is_pinned():
+    adopted = benchmark.PINNED[benchmark.ADOPTED]
+    assert benchmark.parameter_grid(benchmark.ADOPTED) == [adopted]
+    assert adopted["tier3_k"] == 0.75 and adopted["rookie_penalty"] == 200

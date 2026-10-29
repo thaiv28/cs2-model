@@ -70,7 +70,15 @@ PINNED = {
         "rd_new": 350,
         "rd_info": 0.125,
         "new_player": "teammates",
-    }
+    },
+}
+# Adopted 2026-10-29 (research ledger): rookie discount + tier-3 K over the base.
+ADOPTED = "player_round_glicko_rookie_weights"
+PINNED[ADOPTED] = PINNED["player_round_glicko"] | {
+    "rookie_penalty": 200,
+    "rookie_maps": 400,
+    "online_k": 1.0,
+    "tier3_k": 0.75,
 }
 
 for variant in ("rookie", "moves", "rookie_moves", "weights", "rookie_weights"):
