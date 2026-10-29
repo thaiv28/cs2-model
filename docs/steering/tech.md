@@ -8,9 +8,11 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 
 | Path | Purpose |
 |---|---|
-| `promcs/main.py` | CLI entry; mounts `kalshi` (Liquipedia group planned) |
+| `promcs/main.py` | CLI entry; mounts `kalshi` and `liquipedia` |
 | `promcs/kalshi/api.py` | Public HTTP client, pacing, retries and pagination |
 | `promcs/kalshi/collect.py` | Raw catalog, trade, candle and book files |
+| `promcs/liquipedia/` | Rate-limited API queries, incremental raw cache and CLI |
+| `tests/test_liquipedia_crawl.py` | Offline crawler, HTTP, cache and CLI tests |
 | `promcs/kalshi/cli.py` | Collector, manifest and book-loop commands |
 | `scripts/kalshi_data.sh` | S3 pull/push helper |
 | `.github/workflows/ci.yml`, `kalshi-collect.yml` | CI and scheduled Kalshi collection |
@@ -22,6 +24,12 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 ## Kalshi collector
 
 `promcs kalshi collect [--no-books] [--limit N]` refreshes `KXCS2GAME` and `KXCS2MAP`, saves final-market histories and snapshots active books. `--limit` caps new trade/candle fetches combined. `promcs kalshi books --every 60 --minutes 60` refreshes active tickers each pass. Data root is `PROMCS_DATA` (default `data/`); files live under `kalshi/`. GitHub Actions is intended to collect every six hours (see Deployment).
+
+## Liquipedia crawler
+
+`promcs liquipedia crawl [--limit N] [--full]` uses only `action=query` at `https://liquipedia.net/counterstrike/api.php`, with gzip, a 2.2-second request interval and retry backoff. Set `LIQUIPEDIA_CONTACT` to append contact details to the User-Agent. Category members and revisions are refreshed; content is fetched only for new or changed revision IDs unless `--full` is set. `--limit` caps content titles per run. Tab `linkN` parameters discover pages under the same tournament root, through three rounds.
+
+Under `PROMCS_DATA` (default `data/`), `liquipedia/pages/<sha1-prefix>/<sha1>.json.gz` stores unparsed wikitext and revision metadata; `index.json` tracks revisions, sources and parents, atomically saved after each batch. `category/*.json` stores the latest title lists. `promcs liquipedia status` reports cache counts and newest fetch time. Content credit: Liquipedia contributors, CC BY-SA 3.0. No HTML scraping or match parsing.
 
 ## Model change rules
 
