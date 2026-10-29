@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words.
 
+## 2026-10-29 — Benchmark reads Liquipedia alias column
+
+Branch `alias-col`, base `main` (491154a). The parallel ratings and linking branches disagreed: `evaluate_elo.py` read `team_aliases.vlr_team_id`, which the CS2 link step names `liquipedia_team_id`; the Kalshi stage crashed. Renamed in the benchmark and its test. Checks: `uv run pytest -q`, ruff format/check.
+
 ## 2026-10-29 — Ratings and benchmark port
 
 Branch `ratings`, base `main` (`99fdabc`). Ported team/player Elo, RD/rookie/moves, seven-region causal layer, evaluation, blend, execution backtest and two-stage/series CLIs; adapted CS2 reads, tiers and dates. Missing Kalshi tables explicitly skip market sections. Added synthetic tests and aligned docs. Checks: pytest 204 passed (12.57 s unloaded, 27.18 s during benchmark; baseline 109/1.01 s, +11.56 s CI work); ruff format/check and diff check passed. Used `UV_NO_SYNC=true UV_OFFLINE=true` to avoid uv sync's local panic. Offline rebuild passed (25.53 s); rebuild plus benchmark 227.81 s, evaluation 201.85 s. Stage 1, 73,819 maps: player_round_glicko map/series loss 0.640438/0.619448 (K32, teammates, RD350/info0.125, τ0.5); team_elo 0.662311/0.647815 (K32). Scratch report only; stage-2 outcomes scored. Limits: Kalshi validation pending links; no stats/form layer; holdout closed.

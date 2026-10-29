@@ -101,7 +101,7 @@ def database(tmp_path):
             CREATE TABLE maps(game_id PRIMARY KEY, match_id, "order", map, score1, score2);
             CREATE TABLE player_maps(game_id, player_id, team);
             CREATE TABLE kalshi_markets(ticker, series, event_ticker, kind, competitor_id, open_time);
-            CREATE TABLE team_aliases(competitor_id, vlr_team_id);
+            CREATE TABLE team_aliases(competitor_id, liquipedia_team_id);
             CREATE TABLE kalshi_links(event_ticker, match_id, game_id, kind, method, reason);
             INSERT INTO events VALUES (1, 'tier1', 1, NULL, 0), (99, 'unknown', 0, NULL, 0);
             INSERT INTO teams VALUES (10, 'A'), (20, 'B');
@@ -148,7 +148,7 @@ def database(tmp_path):
         )
         for competitor, team in (("a", 10), ("b", 20), ("other", 99)):
             conn.execute(
-                "INSERT INTO team_aliases(competitor_id,vlr_team_id) VALUES (?,?)",
+                "INSERT INTO team_aliases(competitor_id,liquipedia_team_id) VALUES (?,?)",
                 (competitor, team),
             )
         for event, kind, game_id in (("S", "series", None), ("M", "map", 22)):

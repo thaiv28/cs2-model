@@ -169,7 +169,7 @@ def kalshi_rows(conn, maps, series, directory, rule=PRESTART):
         return pd.DataFrame()
     markets = pd.read_sql(
         """SELECT l.event_ticker, l.match_id, l.game_id, l.kind,
-                  k.ticker, k.open_time, a.vlr_team_id
+                  k.ticker, k.open_time, a.liquipedia_team_id
            FROM kalshi_links l JOIN kalshi_markets k USING (event_ticker)
            JOIN team_aliases a USING (competitor_id)
            WHERE l.match_id IS NOT NULL AND k.series IN (?, ?) ORDER BY k.ticker""",
@@ -190,7 +190,7 @@ def kalshi_rows(conn, maps, series, directory, rule=PRESTART):
         row = index.loc[key]
         if market.kind == "map" and row.match_id != market.match_id:
             continue
-        if market.vlr_team_id not in (row.team1_id, row.team2_id):
+        if market.liquipedia_team_id not in (row.team1_id, row.team2_id):
             continue
         path = directory / "candles" / f"{market.ticker}.json.gz"
         if not path.exists():
@@ -207,7 +207,7 @@ def kalshi_rows(conn, maps, series, directory, rule=PRESTART):
             continue
         bid, ask, quote_ts = quote
         mid = (bid + ask) / 2
-        team1 = market.vlr_team_id == row.team1_id
+        team1 = market.liquipedia_team_id == row.team1_id
         candidate = row.to_dict()
         if market.kind == "map":
             candidate["p"] = prematch[market.match_id]
