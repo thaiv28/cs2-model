@@ -16,6 +16,10 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 | `promcs/liquipedia/regions.py` | Tournament host country → macro region |
 | `scripts/001_create_tables.sql` | SQLite schema and indexes |
 | `scripts/002_load_liquipedia.py` | Offline cache loader, inheritance and deduplication |
+| `promcs/link.py` | Pure catalog parsing, team matching, aliases and settlement checks |
+| `scripts/003_load_kalshi.py` | Offline Kalshi catalog loader |
+| `scripts/004_link_kalshi.py` | Liquipedia linking and real-data report |
+| `tests/test_link.py` | Offline linking and catalog-to-DB checks |
 | `scripts/setup_db.sh` | Rebuild `db/cs2.db` from raw cache |
 | `tests/test_liquipedia_parse.py`, `tests/test_liquipedia_db.py` | Offline fixture parser and DB checks |
 | `tests/test_liquipedia_crawl.py` | Offline crawler, HTTP, cache and CLI tests |
@@ -39,7 +43,7 @@ Under `PROMCS_DATA` (default `data/`), `liquipedia/pages/<sha1-prefix>/<sha1>.js
 
 ## Database
 
-`uv run bash scripts/setup_db.sh` rebuilds `db/cs2.db` offline from the cache (`PROMCS_DATA` supported). The loader accepts `--db`; errors go beside the DB in `parse_errors.txt`. Tables: `events`, `teams`, `players`, `matches`, `maps`, `rosters`, `player_maps`. SQL foreign keys are enabled.
+`uv run bash scripts/setup_db.sh` rebuilds `db/cs2.db` offline from the cache (`PROMCS_DATA` supported). The loader accepts `--db`; errors go beside the DB in `parse_errors.txt`. Tables: `events`, `teams`, `players`, `matches`, `maps`, `rosters`, `player_maps`, `kalshi_markets`, `team_aliases`, `kalshi_links`. SQL foreign keys are enabled.
 
 Event IDs are page IDs. Team/player IDs are the first 12 SHA-1 hex digits of `team:<key>` / `player:<key>`. Match IDs hash `hltv:<id>` when available, otherwise `match:<page>|<team1>|<team2>|<UTC ISO with Z>|<ordinal>`. Map IDs are match ID × 10 + order (1–9). Duplicate IDs or unordered team pairs with the same timestamp and sorted, team-oriented map scores keep the first page-title occurrence.
 
@@ -48,6 +52,16 @@ Missing infobox fields inherit independently from the nearest cached ancestor. S
 Rosters use five-player TeamCards or Opponent/Persons, excluding non-player roles. Matches use the nearest ancestor with any cards. Folded alphanumeric team names match exactly, then by unique containment with both strings at least three characters. Roster rows belong to the supplying event. Team display names use the most frequent matched card; players on both sides are omitted from that map.
 
 Maps require unequal parsed scores, maximum ≥13, and finished neither skip nor false. Regulation sides and overtime totals are retained. Dates convert listed zones to UTC; missing times use noon UTC. Unknown zones use UTC with time_known=0 and are counted; dateless matches are skipped and counted.
+
+## Kalshi ↔ Liquipedia links
+
+The numbered rebuild loads `kalshi_markets` from `collect.data_dir()/markets/{KXCS2GAME,KXCS2MAP}.json`; missing catalogs load zero rows with a note. Rules supply EDT/EST schedules converted to UTC Z. Tournament names split at the last matchup colon. Tickers supply team codes and map numbers.
+
+`team_aliases` maps consistent competitor IDs to Liquipedia team IDs with confident evidence counts; conflicts permanently drop aliases. `kalshi_links` stores each event's match/map, method and failure reason. Only events with `excluded=0` supply candidates.
+
+Candidates lie within ±30 hours of schedule (fallback: open time +24 hours). Exact → alias → anchor passes repeat; a final fuzzy pass requires both similarities ≥0.8. Anchors require one confirmed team unique in the window and a plausible opponent (shared tokens, code initials/token or similarity ≥0.6). Exact opponents take precedence; ambiguity stays unresolved. Name variants union display names and template keys, including trailing parentheticals. Normalization removes accents/generic words and `gg`, equates female/women/GC, and retains `academy`. CS2 guard: `academy` is ignored in opponent plausibility overlap/similarity. `1w`/`1WIN` reaches the existing anchor threshold with a unique confirmed opponent. Map links inherit series identity, selecting played map order; absent maps are `unplayed`.
+
+Binary settlements are cross-checked against winners. `db/link_report.txt` lists failures, anchor mappings and mismatches; reruns replace derived rows.
 
 ## Model change rules
 
