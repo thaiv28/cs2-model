@@ -26,6 +26,9 @@ from promcs.ratings.models import MODELS
 from promcs.ratings.replay import load_lineups, load_maps
 
 STATE_VERSION = 1
+# The adopted model (docs/research/README.md); its weights and series temperatures
+# come from elo_weights.json (`evaluate_elo.py --write-weights`).
+MODEL = "player_round_glicko_rookie_weights"
 
 SECTIONS = [
     ("INTL", "International"),
@@ -250,9 +253,9 @@ def build_state(conn, data_root=None) -> dict:
     teams = {r["team_id"]: dict(r) for r in conn.execute("SELECT * FROM teams")}
     weights = json.loads(
         Path(__file__).with_name("ratings").joinpath("elo_weights.json").read_text()
-    )["player_round_glicko"]
+    )[MODEL]
     temperatures = weights["series_temperature"]
-    model = MODELS["player_round_glicko"](
+    model = MODELS[MODEL](
         lineups=load_lineups(conn),
         **{
             k: v
