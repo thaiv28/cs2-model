@@ -36,6 +36,11 @@ jobs:
             data/kalshi
           key: raw-${{ github.run_id }}
           restore-keys: raw-
+      - name: Seed cold raw cache
+        if: steps.raw.outputs.cache-matched-key == ''
+        continue-on-error: true
+        run: |
+          aws s3 cp "s3://$BUCKET/cs2-model/seed/raw.tar.zst" - | tar -I zstd -xf -
       - name: Seed and crawl
         id: crawl
         run: |
@@ -53,20 +58,73 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
           tail -1 /tmp/crawl-summary >> "$GITHUB_STEP_SUMMARY"
-      - name: Rebuild database
-        run: |
-          started=$SECONDS
-          bash scripts/setup_db.sh
-          echo "DB build: $((SECONDS - started)) seconds" >> "$GITHUB_STEP_SUMMARY"
-      - name: Build and upload ratings snapshot
-        run: |
-          uv run promcs feed-state | tee /tmp/state-summary
-          cat /tmp/state-summary >> "$GITHUB_STEP_SUMMARY"
-          aws s3 cp data/feed/state.pkl.gz "s3://$BUCKET/cs2-model/feed/state.pkl.gz" --only-show-errors
       - uses: actions/cache/save@v4
+        id: raw-save
         if: steps.crawl.outputs.changed == 'true'
         with:
           path: |
             data/liquipedia
             data/kalshi
           key: raw-${{ github.run_id }}
+      - name: Refresh weekly seed
+        if: steps.raw-save.outcome == 'success'
+        continue-on-error: true
+        run: |
+          modified=$(aws s3api head-object --bucket "$BUCKET" --key cs2-model/seed/raw.tar.zst --query LastModified --output text 2>/dev/null || true)
+          if [ -z "$modified" ] || [ "$modified" = "None" ] || [ $(( $(date -u +%s) - $(date -u -d "$modified" +%s) )) -gt 604800 ]; then
+            tar -I 'zstd -T0 -3' -cf - --exclude='*/books/*' data/liquipedia data/kalshi | aws s3 cp - "s3://$BUCKET/cs2-model/seed/raw.tar.zst" --expected-size 3000000000 --only-show-errors
+          fi
+      - name: Hash database inputs
+        id: inputs
+        env:
+          CODE_HASH: ${{ hashFiles('scripts/**', 'promcs/**', 'uv.lock') }}
+        run: |
+          INPUTS=$({ find data/liquipedia data/kalshi -type f -not -path '*/books/*' -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; printf '%s\n' "$CODE_HASH"; } | sha256sum | cut -d ' ' -f 1)
+          echo "hash=$INPUTS" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        id: database
+        with:
+          path: db
+          key: db-${{ steps.inputs.outputs.hash }}
+      - name: Check published inputs
+        id: skip
+        env:
+          INPUTS: ${{ steps.inputs.outputs.hash }}
+          DB_HIT: ${{ steps.database.outputs.cache-hit }}
+          RAW_HIT: ${{ steps.raw.outputs.cache-matched-key }}
+        run: |
+          echo "Raw cache: $([ -n "$RAW_HIT" ] && echo hit || echo miss)" >> "$GITHUB_STEP_SUMMARY"
+          echo "DB cache: $([ "$DB_HIT" = true ] && echo hit || echo miss)" >> "$GITHUB_STEP_SUMMARY"
+          published=$(aws s3api head-object --bucket "$BUCKET" --key cs2-model/feed/state.pkl.gz --query Metadata.inputs --output text 2>/dev/null || true)
+          if [ "$DB_HIT" = true ] && [ "$published" = "$INPUTS" ]; then
+            echo "unchanged=true" >> "$GITHUB_OUTPUT"
+            echo "Unchanged inputs; skipped rebuild" >> "$GITHUB_STEP_SUMMARY"
+            echo "DB build: 0 seconds (skipped)" >> "$GITHUB_STEP_SUMMARY"
+            echo "Artifact snapshots: 0 (skipped)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Rebuild database
+        if: steps.skip.outputs.unchanged != 'true'
+        run: |
+          started=$SECONDS
+          bash scripts/setup_db.sh
+          echo "Rebuilt database" >> "$GITHUB_STEP_SUMMARY"
+          echo "DB build: $((SECONDS - started)) seconds" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build and upload ratings snapshot
+        if: steps.skip.outputs.unchanged != 'true'
+        env:
+          INPUTS: ${{ steps.inputs.outputs.hash }}
+        run: |
+          uv run promcs feed-state | tee /tmp/state-summary
+          cat /tmp/state-summary >> "$GITHUB_STEP_SUMMARY"
+          aws s3 cp data/feed/state.pkl.gz "s3://$BUCKET/cs2-model/feed/state.pkl.gz" --metadata inputs="$INPUTS" --only-show-errors
+      - uses: actions/cache/save@v4
+        if: steps.skip.outputs.unchanged != 'true' && steps.database.outputs.cache-hit != 'true'
+        with:
+          path: db
+          key: db-${{ steps.inputs.outputs.hash }}
+      - name: Build and upload blend artifact
+        if: steps.skip.outputs.unchanged != 'true'
+        run: |
+          uv run promcs blend-artifact --out data/feed/blend_artifact.json
+          aws s3 cp data/feed/blend_artifact.json "s3://$BUCKET/cs2-model/feed/blend_artifact.json" --content-type application/json --only-show-errors
+          uv run python -c 'import json; print("Artifact snapshots:", len(json.load(open("data/feed/blend_artifact.json"))["snapshots"]))' >> "$GITHUB_STEP_SUMMARY"

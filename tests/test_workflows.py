@@ -102,3 +102,85 @@ def test_feed_data_bash_syntax():
     subprocess.run(
         ["bash", "-n", str(WORKFLOW.parents[2] / "scripts/feed_data.sh")], check=True
     )
+
+
+def refresh_steps():
+    text = (WORKFLOW.parent / "refresh-db.yml").read_text()
+    return text.split("      - ")[1:]
+
+
+def test_refresh_database_input_cache():
+    steps = refresh_steps()
+    inputs = next(step for step in steps if "id: inputs\n" in step)
+    assert "hashFiles('scripts/**', 'promcs/**', 'uv.lock')" in inputs
+    assert (
+        "find data/liquipedia data/kalshi -type f -not -path '*/books/*' "
+        "-printf '%P %s\\n' | LC_ALL=C sort" in inputs
+    )
+    assert "printf '%s\\n' \"$CODE_HASH\"" in inputs
+    assert "sha256sum" in inputs
+    caches = [step for step in steps if "key: db-" in step]
+    assert len(caches) == 2
+    for step in caches:
+        assert "path: db\n" in step
+        assert "key: db-${{ steps.inputs.outputs.hash }}" in step
+        assert "restore-keys:" not in step
+    assert "actions/cache/restore@v4" in caches[0]
+    assert "actions/cache/save@v4" in caches[1]
+
+
+def test_refresh_rebuild_requires_cache_and_published_state():
+    steps = refresh_steps()
+    skip = next(step for step in steps if "id: skip\n" in step)
+    assert "steps.database.outputs.cache-hit" in skip
+    assert "--key cs2-model/feed/state.pkl.gz --query Metadata.inputs" in skip
+    assert 'if [ "$DB_HIT" = true ] && [ "$published" = "$INPUTS" ]; then' in skip
+    assert "Unchanged inputs; skipped rebuild" in skip
+    for command in (
+        "bash scripts/setup_db.sh",
+        "uv run promcs feed-state",
+        "actions/cache/save@v4\n",
+        "uv run promcs blend-artifact",
+    ):
+        matching = [
+            step for step in steps if command in step and "key: raw-" not in step
+        ]
+        assert len(matching) == 1
+        assert "if: steps.skip.outputs.unchanged != 'true'" in matching[0]
+    state = next(step for step in steps if "uv run promcs feed-state" in step)
+    assert '--metadata inputs="$INPUTS"' in state
+    artifact = next(step for step in steps if "uv run promcs blend-artifact" in step)
+    assert "--out data/feed/blend_artifact.json" in artifact
+    assert (
+        'aws s3 cp data/feed/blend_artifact.json "s3://$BUCKET/cs2-model/feed/blend_artifact.json" --content-type application/json --only-show-errors'
+        in artifact
+    )
+    assert "Artifact snapshots:" in artifact
+    assert "DB build:" in skip
+    assert "Raw cache:" in skip
+    assert "DB cache:" in skip
+
+
+def test_refresh_seed_guards_and_raw_save_order():
+    steps = refresh_steps()
+    download = next(step for step in steps if "name: Seed cold raw cache" in step)
+    assert "if: steps.raw.outputs.cache-matched-key == ''" in download
+    assert "continue-on-error: true" in download
+    assert (
+        'aws s3 cp "s3://$BUCKET/cs2-model/seed/raw.tar.zst" - | tar -I zstd -xf -'
+        in download
+    )
+    crawl = next(step for step in steps if "id: crawl\n" in step)
+    raw_save = next(step for step in steps if "id: raw-save\n" in step)
+    weekly = next(step for step in steps if "name: Refresh weekly seed" in step)
+    build = next(step for step in steps if "bash scripts/setup_db.sh" in step)
+    assert steps.index(download) < steps.index(crawl) < steps.index(raw_save)
+    assert steps.index(raw_save) < steps.index(build)
+    assert "if: steps.crawl.outputs.changed == 'true'" in raw_save
+    assert "if: steps.raw-save.outcome == 'success'" in weekly
+    assert "continue-on-error: true" in weekly
+    assert "--key cs2-model/seed/raw.tar.zst --query LastModified" in weekly
+    assert '[ -z "$modified" ]' in weekly
+    assert "-gt 604800" in weekly
+    assert "tar -I 'zstd -T0 -3' -cf - --exclude='*/books/*'" in weekly
+    assert "--expected-size 3000000000 --only-show-errors" in weekly
