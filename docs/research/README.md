@@ -4,6 +4,14 @@ Every model idea tested, adopted or not, newest first, with its numbers. These p
 
 ## Two-stage runs
 
+2026-10-29 Kalshi validation on the full backfill (41,545 markets; links: series 5,138/7,907, maps 9,131/12,865). Report: [`docs/elo_backtest.md`](../elo_backtest.md). Frozen stage-1 models, tradeable quote. Supersedes the preliminary run below.
+
+- player_round_glicko, series (4,136): raw +0.0003 [−0.0080, +0.0083]; blended −0.0118 [−0.0170, −0.0066] (significant); tier2 −0.0097 and tier3 −0.0188 significant; tier1 +0.0022 and international +0.0008 n.s. Blended beats Kalshi in 7 of 8 fitted months.
+- Maps (4,087): raw +0.0051 (n.s.); blended −0.0027 [−0.0069, +0.0015] (n.s.).
+- Flat returns at the ask after fees: blended series +8.0% [+3.7, +12.2] (positive all 8 months), depth-capped +5.5% [+0.2, +11.3]; tier3 +12.1% [+5.5, +19.4]; tier1 −0.1%. Raw series +2.0% [−2.6, +6.8]; raw maps −4.6%, depth-capped −15.0%. Raw full Kelly goes broke; blended LoL-capped series $50 → $6,739 (82.8% drawdown), depth-capped $608.
+- team_elo: series raw +0.025, blended n.s.
+- Two stage-2 runs so far (this and the preliminary).
+
 2026-10-29 first Kalshi validation — **preliminary: Kalshi backfill ~40% done** (series candles only, no map catalog). Same frozen stage-1 models; tradeable quote (first hourly bid/ask ≥30 min after listing, ≥2 h before start, spread ≤0.06). 1,876 linked series with a quote.
 
 - player_round_glicko raw vs Kalshi: +0.0014 [−0.0100, +0.0130] (n.s.); tier1 +0.024 (n.s.), tier2 +0.002, tier3 −0.009.

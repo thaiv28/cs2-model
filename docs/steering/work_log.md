@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words.
 
+## 2026-10-29 — Full Kalshi backfill and validation
+
+Branch `full-bench`, base `main` (c8a3138). Backfill finished (KXCS2GAME 15,815, KXCS2MAP 25,730 markets; 106 fetch errors left for the scheduled collector). Rebuilt DB: series links 5,138/7,907, map links 9,131/12,865, results agree 28,362/28,396. Benchmark (517 s): player_round_glicko blended series −0.0118 vs Kalshi (significant), raw +0.0003; maps n.s.; blended series flat ROI +8.0% [+3.7, +12.2]. Committed `docs/elo_backtest.md`; ledger updated. S3 seeding pending (AWS SSO expired). Checks: `uv run pytest -q`.
+
 ## 2026-10-29 — First Kalshi validation (preliminary)
 
 Branch `ledger`, base `main` (4f689df). Ran `evaluate_elo.py --models team_elo,player_round_glicko --layers none` (320 s) with the Kalshi backfill ~40% done: player_round_glicko raw +0.0014 (n.s.), blended −0.0105 (significant) vs Kalshi's tradeable quote on 1,876 series; recorded in the research ledger. `docs/elo_backtest.md` not committed until the backfill completes. Checks: `uv run pytest -q`.
