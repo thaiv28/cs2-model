@@ -6,7 +6,7 @@ Added an exact input-hash DB cache and state `inputs` metadata check: unchanged 
 
 Checks: 300 pytest tests passed with offline/no-sync uv; Ruff format/check passed. System PyYAML parse, nine shell syntax checks and four skip-check cases passed. Requested uvx validation was blocked by sandbox/uv failure. Runner timings and CI before/after durations must be measured after merge. Sandbox blocked the requested git fetch/branch setup; no commit made.
 
-Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words. The DB cache key hashes file contents (not sizes), so a same-size page revision still rebuilds.
+Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words. The DB cache key hashes file contents (not sizes), so a same-size page revision still rebuilds. Workflow tests updated for the content hash.
 
 ## 2026-10-29 — Execution inputs
 

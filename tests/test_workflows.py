@@ -115,7 +115,7 @@ def test_refresh_database_input_cache():
     assert "hashFiles('scripts/**', 'promcs/**', 'uv.lock')" in inputs
     assert (
         "find data/liquipedia data/kalshi -type f -not -path '*/books/*' "
-        "-printf '%P %s\\n' | LC_ALL=C sort" in inputs
+        "-print0 | LC_ALL=C sort -z | xargs -0 sha256sum" in inputs
     )
     assert "printf '%s\\n' \"$CODE_HASH\"" in inputs
     assert "sha256sum" in inputs
