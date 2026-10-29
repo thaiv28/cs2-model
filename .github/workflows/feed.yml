@@ -1,0 +1,56 @@
+name: Site feed
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7 * * * *"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: feed
+  cancel-in-progress: false
+
+jobs:
+  feed:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}
+      HAS_DISPATCH: ${{ secrets.PROMETHEUS_DISPATCH_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv sync --frozen --no-dev
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+      - name: Download ratings snapshot
+        run: |
+          mkdir -p data/feed
+          if ! aws s3 cp "s3://$BUCKET/cs2-model/feed/state.pkl.gz" data/feed/state.pkl.gz --only-show-errors; then
+            echo "::error::Unable to load ratings snapshot; run refresh-db first"
+            exit 1
+          fi
+      - run: bash scripts/feed_data.sh restore
+      - run: aws s3 sync "s3://$BUCKET/cs2-model/feed/upcoming" data/upcoming --only-show-errors
+      - name: Export feed
+        run: |
+          uv run promcs export --state data/feed/state.pkl.gz --out data/feed/cs2.json | tee /tmp/export-summary
+          tail -1 /tmp/export-summary >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload feed
+        run: |
+          gzip -9 -c data/feed/cs2.json > data/feed/cs2.json.gz
+          aws s3 cp data/feed/cs2.json.gz "s3://$BUCKET/cs2-model/feed/cs2.json.gz" --content-type application/json --only-show-errors
+      - run: bash scripts/feed_data.sh save
+      - run: aws s3 sync data/upcoming "s3://$BUCKET/cs2-model/feed/upcoming" --only-show-errors
+      - name: Dispatch Prometheus
+        if: env.HAS_DISPATCH == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.PROMETHEUS_DISPATCH_TOKEN }}
+        run: gh workflow run games.yml -R thaiv28/Prometheus --ref main

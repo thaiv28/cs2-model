@@ -1,5 +1,8 @@
 """The `promcs` command line."""
 
+import os
+import sqlite3
+import time
 from pathlib import Path
 
 import typer
@@ -16,11 +19,29 @@ app.add_typer(
 
 
 @app.command("export")
-def export_command(out: Path | None = None, no_fetch: bool = False):
+def export_command(
+    out: Path | None = None, no_fetch: bool = False, state: Path | None = None
+):
     """Write the Prometheus site prediction feed."""
-    from promcs.feed import export
+    from promcs.feed import export, load_state
 
-    export(out=out, no_fetch=no_fetch)
+    export(state=load_state(state) if state else None, out=out, no_fetch=no_fetch)
+
+
+@app.command("feed-state")
+def feed_state_command(out: Path | None = None):
+    """Build the ratings snapshot from the local database."""
+    from promcs.feed import build_state, save_state
+
+    started = time.monotonic()
+    root = Path(os.environ.get("PROMCS_DATA", "data"))
+    out = out or root / "feed/state.pkl.gz"
+    with sqlite3.connect("db/cs2.db") as conn:
+        state = build_state(conn, root)
+    save_state(state, out)
+    print(
+        f"state={out} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
+    )
 
 
 if __name__ == "__main__":

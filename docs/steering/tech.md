@@ -8,7 +8,7 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 
 | Path | Purpose |
 |---|---|
-| `promcs/main.py` | CLI entry; mounts `kalshi`, `liquipedia` and `export` |
+| `promcs/main.py` | CLI entry; mounts `kalshi`, `liquipedia`, `feed-state` and `export` |
 | `promcs/kalshi/api.py` | Public HTTP client, pacing, retries and pagination |
 | `promcs/kalshi/collect.py` | Raw catalog, trade, candle and book files |
 | `promcs/liquipedia/` | Rate-limited API queries, incremental raw cache and CLI |
@@ -31,8 +31,9 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 | `tests/test_liquipedia_parse.py`, `tests/test_liquipedia_db.py` | Offline fixture parser and DB checks |
 | `tests/test_liquipedia_crawl.py` | Offline crawler, HTTP, cache and CLI tests |
 | `promcs/kalshi/cli.py` | Collector, manifest and book-loop commands |
-| `scripts/kalshi_data.sh` | S3 pull/push helper |
+| `scripts/kalshi_data.sh`, `feed_data.sh` | S3 archives and conditional prediction-log persistence |
 | `.github/workflows/ci.yml`, `kalshi-collect.yml` | CI and scheduled Kalshi collection |
+| `.github/workflows/refresh-db.yml`, `feed.yml` | Hourly ratings snapshot and frequent DB-free site feed |
 | `.githooks/pre-commit`, `scripts/work_log.py` | Work-log rotation and tooling |
 | `tests/test_kalshi_collect.py` | Offline fixture-based collector and CLI tests |
 | `tests/test_workflows.py`, `tests/test_steering.py` | Workflow and document guards |
@@ -101,6 +102,8 @@ Returns buy the greater positive after-fee edge. Fees round up to cents per orde
 Layers retain fit/apply/describe factories with connection/lineup context. --layers none defaults to identity. regional fits logit(p′)=s·logit(p)+e[home1]−e[home2] on stage-1 cross-region rows, seven zero-sum effects with ridge 4; fewer than 50 eligible rows is identity. Homes are causal; validation outcomes never fit layers. No form layer: CS2 player_maps has no per-player statistics.
 
 ## Site feed
+
+`promcs feed-state` builds `feed/state.pkl.gz`: atomic gzip-6 pickle, version 1, replayed model/rated teams, temperatures, reconstructed finals/closes, match joins, lookups/aliases and data-through. Load only trusted internal snapshots; incompatible versions fail. `promcs export --state PATH` bypasses SQLite and candles; the DB wrapper remains available.
 
 `promcs export [--out PATH] [--no-fetch]` atomically writes `PROMCS_DATA/feed/cs2.json` (default root `data/`) for Prometheus. Replays player_round_glicko with the stored stage-1 weights; no refit. Upcoming named teams use latest rated lineups; unknown/even lengths emit null and use untempered Bo3 odds. Active DB events within the UTC date window supply revision-content queries in batches of 50. Raw snapshots go to `upcoming/latest.json.gz`; `--no-fetch` uses that snapshot and omits current prices. Raw Liquipedia/Kalshi caches stay read-only.
 

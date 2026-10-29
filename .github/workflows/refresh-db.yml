@@ -1,0 +1,72 @@
+name: Refresh DB
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 * * * *"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: refresh-db
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv sync --frozen --no-dev
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+      - uses: actions/cache/restore@v4
+        id: raw
+        with:
+          path: |
+            data/liquipedia
+            data/kalshi
+          key: raw-${{ github.run_id }}
+          restore-keys: raw-
+      - name: Seed and crawl
+        id: crawl
+        run: |
+          touch /tmp/raw-marker
+          mkdir -p data/liquipedia data/kalshi
+          # S3 restores remote mtimes, so also compare inventories for top-ups.
+          find data/liquipedia data/kalshi -type f -printf '%p %s %T@\n' | sort > /tmp/raw-before
+          aws s3 sync "s3://$BUCKET/cs2-model/liquipedia" data/liquipedia --only-show-errors
+          aws s3 sync "s3://$BUCKET/cs2-model/kalshi" data/kalshi --only-show-errors --exclude "books/*"
+          uv run promcs liquipedia crawl | tee /tmp/crawl-summary
+          aws s3 sync data/liquipedia "s3://$BUCKET/cs2-model/liquipedia" --size-only --only-show-errors
+          changed=$(find data/liquipedia data/kalshi -newer /tmp/raw-marker -type f -print -quit)
+          find data/liquipedia data/kalshi -type f -printf '%p %s %T@\n' | sort > /tmp/raw-after
+          if ! cmp -s /tmp/raw-before /tmp/raw-after || [ -n "$changed" ] || [ "${{ steps.raw.outputs.cache-matched-key }}" = "" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          tail -1 /tmp/crawl-summary >> "$GITHUB_STEP_SUMMARY"
+      - name: Rebuild database
+        run: |
+          started=$SECONDS
+          bash scripts/setup_db.sh
+          echo "DB build: $((SECONDS - started)) seconds" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build and upload ratings snapshot
+        run: |
+          uv run promcs feed-state | tee /tmp/state-summary
+          cat /tmp/state-summary >> "$GITHUB_STEP_SUMMARY"
+          aws s3 cp data/feed/state.pkl.gz "s3://$BUCKET/cs2-model/feed/state.pkl.gz" --only-show-errors
+      - uses: actions/cache/save@v4
+        if: steps.crawl.outputs.changed == 'true'
+        with:
+          path: |
+            data/liquipedia
+            data/kalshi
+          key: raw-${{ github.run_id }}

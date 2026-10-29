@@ -341,3 +341,64 @@ def test_closing_candle_orientation(database, tmp_path):
     final = next(r for r in feed["matches"] if r["match_id"] == str(mid))
     assert final["market"]["p"] == 0.6
     assert final["market"]["at"] == "2026-01-03T10:00Z"
+
+
+def test_snapshot_roundtrip_matches_database(database, tmp_path, monkeypatch):
+    from promcs.feed import build_state, load_state, save_state
+
+    root = tmp_path / "snapshot"
+    with sqlite3.connect(database) as conn:
+        state = build_state(conn, root)
+    path = tmp_path / "state.pkl.gz"
+    save_state(state, path)
+    loaded = load_state(path)
+    expected = run(database, tmp_path, scheduled())
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("snapshot export opened a database")
+
+    monkeypatch.setattr(sqlite3, "connect", forbidden)
+    actual = export(
+        loaded,
+        db=tmp_path / "missing.db",
+        data=root,
+        now=NOW,
+        liquipedia_fetcher=lambda **kw: response(scheduled()),
+        kalshi_fetcher=lambda **kw: {"markets": [], "cursor": ""},
+    )
+    assert actual == expected
+    # Export must not change reusable snapshot rows.
+    assert export(loaded, data=root, now=NOW, no_fetch=True) == expected
+    assert loaded["rows"] == state["rows"]
+    state["version"] += 1
+    save_state(state, path)
+    with pytest.raises(ValueError, match="Unsupported feed state version"):
+        load_state(path)
+
+
+def test_snapshot_cli_never_opens_db(database, tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from promcs.feed import build_state, save_state
+    from promcs.main import app
+
+    with sqlite3.connect(database) as conn:
+        state = build_state(conn, tmp_path)
+    path = tmp_path / "state.pkl.gz"
+    save_state(state, path)
+    expected = export(db=database, data=tmp_path / "db-feed", no_fetch=True)
+    monkeypatch.setenv("PROMCS_DATA", str(tmp_path / "cli-feed"))
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("CLI snapshot export opened a database")
+
+    monkeypatch.setattr(sqlite3, "connect", forbidden)
+    out = tmp_path / "feed.json"
+    result = CliRunner().invoke(
+        app, ["export", "--state", str(path), "--out", str(out), "--no-fetch"]
+    )
+    assert result.exit_code == 0, result.output
+    actual = json.loads(out.read_text())
+    actual.pop("generated")
+    expected.pop("generated")
+    assert actual == expected
