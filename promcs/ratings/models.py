@@ -61,6 +61,18 @@ for region in (False, True):
     if region:
         PARAM_GRIDS[name]["region_k"] = (2, 4)
 
+# Stage-1 winners of the 640-point base grid (2026-10-29). Benchmarks score these
+# by default; evaluate_elo.py --full-grid re-searches PARAM_GRIDS (update these after).
+PINNED = {
+    "player_round_glicko": {
+        "k": 32,
+        "tau": 0.5,
+        "rd_new": 350,
+        "rd_info": 0.125,
+        "new_player": "teammates",
+    }
+}
+
 for variant in ("rookie", "moves", "rookie_moves", "weights", "rookie_weights"):
     name = f"player_round_glicko_{variant}"
     MODELS[name] = partial(EloModel, unit="player", credit="round", rd=True)

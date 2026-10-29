@@ -1038,3 +1038,14 @@ def test_outcome_report_without_kalshi_tables(database, tmp_path, capsys):
     assert "Kalshi sections skipped: missing tables" in capsys.readouterr().out
     assert "#### Full-Kelly returns" not in report
     assert "## Holdout" not in report
+
+
+def test_pinned_grid_and_full_grid():
+    pinned = benchmark.PINNED["player_round_glicko"]
+    assert benchmark.parameter_grid("player_round_glicko") == [pinned]
+    assert [
+        p["k"] for p in benchmark.parameter_grid("player_round_glicko", (16, 24))
+    ] == [16, 24]
+    full = benchmark.parameter_grid("player_round_glicko", full=True)
+    assert len(full) == 640 and pinned in full
+    assert len(benchmark.parameter_grid("team_elo")) == 6

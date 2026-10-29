@@ -31,7 +31,7 @@ from promcs.evaluation import (
 )
 from promcs.kalshi.collect import SERIES, data_dir
 from promcs.ratings.layers import LAYERS
-from promcs.ratings.models import MODELS, PARAM_GRIDS
+from promcs.ratings.models import MODELS, PARAM_GRIDS, PINNED
 from promcs.ratings.regions import macro_region
 from promcs.ratings.replay import load_lineups, load_maps, replay
 
@@ -491,7 +491,10 @@ def monthly_table(frame):
     return "\n".join(lines)
 
 
-def parameter_grid(model, k_grid=None):
+def parameter_grid(model, k_grid=None, full=False):
+    if model in PINNED and not full:
+        pinned = dict(PINNED[model])
+        return [pinned | {"k": k} for k in k_grid] if k_grid else [pinned]
     grid = dict(PARAM_GRIDS[model])
     if k_grid is not None and "k" in grid:
         grid["k"] = k_grid
@@ -528,6 +531,11 @@ def main(argv=None):
     )
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 1, 8))
     parser.add_argument("--k-grid", help="optional K grid override for every model")
+    parser.add_argument(
+        "--full-grid",
+        action="store_true",
+        help="re-search pinned models' full grids (models.PINNED)",
+    )
     parser.add_argument("--seed-from")
     parser.add_argument("--tune-from", default="2024-01-01")
     parser.add_argument("--tune-to", default="2026-01-01")
@@ -629,7 +637,9 @@ def main(argv=None):
             parser.error("no tuning maps in the requested scoring window")
         lineups = load_lineups(conn)
         tasks = [
-            (name, params) for name in names for params in parameter_grid(name, k_grid)
+            (name, params)
+            for name in names
+            for params in parameter_grid(name, k_grid, args.full_grid)
         ]
         best_params, losses = {}, {}
         if args.jobs == 1:

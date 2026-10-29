@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words.
 
+## 2026-10-29 — Pinned base grid
+
+Branch `bench-speed`, base `elo-candidates` (0cdba0a). `player_round_glicko` now scores its stage-1 winner (`models.PINNED`: K=32, τ=0.5, rd_new=350, info=0.125, teammates) instead of re-searching 640 combinations every run; `--full-grid` restores the search, and `--k-grid` still overrides K. Two-model run (`team_elo,player_round_glicko`) 517 s → 214 s with identical stage-2 results. Candidate verdicts in the ledger: rookie 200/400 + tier-3 K 0.75 adopted (stage 2 −0.0068 maps); calibration, online K, tier moves rejected; regional pending intervals. S3 seeded (82,216 objects). Checks: ruff, `uv run pytest -q` (267 passed).
+
 ## 2026-10-29 — CS2 Elo candidates
 
 Branch `elo-candidates`, base `main` (0807b8c). Added tier×LAN calibration and online/tier3 K weighting candidates; anchored rookie/moves grids to the base stage-1 parameters. Replay carries online metadata; offline tests cover calibration, thresholds, neutral multipliers, compounded updates and invalid inputs. Checks: pytest 266 passed/12.56 s; 18 new calibration/multiplier cases 0.29 s (clean before-change timing unavailable); ruff format/check, CLI help, registry listing and diff check passed. Used `UV_NO_SYNC=1 UV_OFFLINE=1`: plain uv panics in macOS configuration. Updated the evaluation fixture for online metadata. Limit: benchmark run pending (run by reviewer). No weights or benchmark report written.
