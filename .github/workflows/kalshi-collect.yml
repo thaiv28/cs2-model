@@ -1,0 +1,53 @@
+name: Kalshi collect
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      allow_full:
+        description: Allow a full backfill when the manifest is missing
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: kalshi-collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv sync --frozen --no-dev
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+      - name: Download manifest
+        run: |
+          mkdir -p data/kalshi
+          aws s3 cp "s3://$BUCKET/cs2-model/kalshi/manifest.json" data/kalshi/manifest.json || echo "no manifest yet"
+      - name: Guard against an unseeded archive
+        env:
+          ALLOW_FULL: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_full }}
+        run: |
+          if [ ! -f data/kalshi/manifest.json ] && [ "$ALLOW_FULL" != "true" ]; then
+            echo "Missing manifest.json: seed S3 first or dispatch with allow_full=true to fetch the full archive (~10k markets)."
+            exit 1
+          fi
+      - name: Collect
+        id: collect
+        run: uv run promcs kalshi collect
+      - name: Upload progress
+        if: always() && steps.collect.outcome != 'skipped' && steps.collect.outcome != ''
+        run: aws s3 sync data/kalshi "s3://$BUCKET/cs2-model/kalshi" --only-show-errors
