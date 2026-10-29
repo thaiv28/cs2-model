@@ -103,7 +103,7 @@ def isolated_cache(monkeypatch, tmp_path):
 
 def test_user_agent(monkeypatch):
     monkeypatch.delenv("LIQUIPEDIA_CONTACT", raising=False)
-    assert http.user_agent() == http.USER_AGENT
+    assert http.user_agent() == http.USER_AGENT[:-1] + "; " + http.CONTACT + ")"
     monkeypatch.setenv("LIQUIPEDIA_CONTACT", "research@example.com")
     assert http.user_agent() == http.USER_AGENT[:-1] + "; research@example.com)"
 

@@ -11,11 +11,13 @@ from urllib.request import Request, urlopen
 
 API = "https://liquipedia.net/counterstrike/api.php"
 USER_AGENT = "cs2-model/0.1 (+https://github.com/thaiv28/cs2-model)"
+# Liquipedia's API terms ask for contact details; LIQUIPEDIA_CONTACT overrides this.
+CONTACT = "thaivillaluna@gmail.com"
 
 
 def user_agent():
-    contact = os.environ.get("LIQUIPEDIA_CONTACT")
-    return USER_AGENT[:-1] + "; " + contact + ")" if contact else USER_AGENT
+    contact = os.environ.get("LIQUIPEDIA_CONTACT") or CONTACT
+    return USER_AGENT[:-1] + "; " + contact + ")"
 
 
 def http_get(params: dict) -> dict:
