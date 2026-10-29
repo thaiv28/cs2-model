@@ -2,6 +2,17 @@
 
 Every model idea tested, adopted or not, newest first, with its numbers. These preliminary leads used parameters tuned on 2025-01-01–2026-08-15 and 1,009 Kalshi series from Aug 16–Oct 29 2026 linked by fuzzy names. Kalshi's last hourly mid before start is sharper than the tradeable quote the benchmark will use; results are leads, not verdicts.
 
+## Two-stage runs
+
+2026-10-29 baseline port — **stage 1 only; Kalshi validation pending**. Tune [2024-01-01,2026-01-01), frozen outcome validation [2026-01-01,2026-11-01); no holdout opened or model adoption decision. Benchmark 201.85 s; offline DB rebuild plus benchmark 227.81 s. Kalshi sections skipped: linking tables absent; zero stage-2 market selection tests.
+
+| Model | Best params | Stage-1 map log loss | Stage-1 series log loss | Map rows | Series rows |
+|---|---|---:|---:|---:|---:|
+| player_round_glicko | k=32, new_player=teammates, rd_info=0.125, rd_new=350, tau=0.5 | 0.640438 | 0.619448 | 73,819 | 35,914 |
+| team_elo | k=32 | 0.662311 | 0.647815 | 73,819 | 35,914 |
+
+Frozen stage-2 outcomes (36,077 maps; 16,918 series): player_round_glicko map/series log loss 0.626260/0.595439; team_elo 0.652391/0.629957. These outcome scores do not replace validation against Kalshi. Series temperatures fitted only on stage 1: Bo3 player=0.83, team=0.70; Bo5 both=0.62.
+
 ## Scratch study (2026-10-28, before this repo)
 
 - Kalshi pregame mids were under-confident in every tier (calibration slope >1); significant only tier 2: 1.35 [1.02, 1.74].

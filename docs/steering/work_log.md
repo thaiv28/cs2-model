@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words.
 
+## 2026-10-29 — Ratings and benchmark port
+
+Branch `ratings`, base `main` (`99fdabc`). Ported team/player Elo, RD/rookie/moves, seven-region causal layer, evaluation, blend, execution backtest and two-stage/series CLIs; adapted CS2 reads, tiers and dates. Missing Kalshi tables explicitly skip market sections. Added synthetic tests and aligned docs. Checks: pytest 204 passed (12.57 s unloaded, 27.18 s during benchmark; baseline 109/1.01 s, +11.56 s CI work); ruff format/check and diff check passed. Used `UV_NO_SYNC=true UV_OFFLINE=true` to avoid uv sync's local panic. Offline rebuild passed (25.53 s); rebuild plus benchmark 227.81 s, evaluation 201.85 s. Stage 1, 73,819 maps: player_round_glicko map/series loss 0.640438/0.619448 (K32, teammates, RD350/info0.125, τ0.5); team_elo 0.662311/0.647815 (K32). Scratch report only; stage-2 outcomes scored. Limits: Kalshi validation pending links; no stats/form layer; holdout closed.
+
 ## 2026-10-29 — Kalshi linking
 
 Branch `kalshi-link`, base `main` (`99fdabc`). Ported offline catalog loading, series/map linking, display-name/key variants, learned aliases, settlement checks and report; added 42 offline tests. CS2 guard ignores academy-only overlap/similarity after a real false anchor; normalization retains academies. Real rebuild: 15,795 markets; series=5138/7897 map=0/0 aliases=599 results=10172/10188 mismatches=16. Main unlinked reasons: no team match, implausible anchor opponent, ambiguous fuzzy/alias candidates, no candidate within 30h. Checks: setup_db completed; pytest 151 passed; ruff format/check and foreign-key/excluded-event checks passed. Measured test time: baseline 109 tests 0.58 s; 151 tests 0.63 s. Plain uv run crashed in sandbox macOS system configuration; checks used UV_NO_SYNC=1 with installed dependencies. Limits: map catalog absent; backfill ongoing; 2,210 markets lack parsed schedules; 16 settlement mismatches need source review. No network/cache changes or commit.
