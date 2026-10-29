@@ -4,6 +4,14 @@ Every model idea tested, adopted or not, newest first, with its numbers. These p
 
 ## Two-stage runs
 
+2026-10-29 Elo candidates (third stage-2 look). Map log loss, candidate − base, paired bootstrap by match; base `player_round_glicko` (K 32, τ 0.5, rd_new 350, info 0.125). Kalshi columns: raw / blended series vs Kalshi, blended series flat ROI (base +0.0003 / −0.0118 / +8.0%).
+
+- **Adopted: rookie discount 200 / 400 maps + tier-3 K × 0.75** (`player_round_glicko_rookie_weights`, online_k 1). Stage 1 −0.0096 [−0.0106, −0.0086], stage 2 −0.0068 [−0.0082, −0.0054]; tier3 −0.0102 significant, tier1 −0.0021 and tier2 +0.0002 n.s. Tier-3 K over rookie alone: stage 1 −0.0015, stage 2 −0.0016 [−0.0020, −0.0012], significant in every tier on both. Kalshi −0.0041 / −0.0145 / +9.0%.
+- Rookie alone (200 / 400): stage 2 −0.0052, tier3 significant; Kalshi −0.0017 / −0.0141 / +9.0%. With rd_new 280 / info 0.25 (old variant grid): stage 2 −0.0061 but tier2 significantly worse (+0.0019 [+0.0000, +0.0040]).
+- Online K: stage 1 chose 1.0 in every grid — rejected. Tier-3 K without rookie also chose 1.0.
+- Rejected: calibration layer by tier × LAN (stage-2 maps −0.0002 over rookie_weights, below 0.0005); tier moves (+0.0004 over rookie). Regional layer not adopted: stage-2 maps −0.0006 (base) / −0.0005 (rookie), interval not computed, blended Kalshi series unchanged (−0.0118 / −0.0138); retest with intervals over the adopted model.
+- Scratch script for the paired numbers: candidate replays at frozen parameters (not in repo).
+
 2026-10-29 Kalshi validation on the full backfill (41,545 markets; links: series 5,138/7,907, maps 9,131/12,865). Report: [`docs/elo_backtest.md`](../elo_backtest.md). Frozen stage-1 models, tradeable quote. Supersedes the preliminary run below.
 
 - player_round_glicko, series (4,136): raw +0.0003 [−0.0080, +0.0083]; blended −0.0118 [−0.0170, −0.0066] (significant); tier2 −0.0097 and tier3 −0.0188 significant; tier1 +0.0022 and international +0.0008 n.s. Blended beats Kalshi in 7 of 8 fitted months.

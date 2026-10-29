@@ -61,23 +61,37 @@ for region in (False, True):
     if region:
         PARAM_GRIDS[name]["region_k"] = (2, 4)
 
-for variant in ("rookie", "moves", "rookie_moves"):
+# Stage-1 winners of the 640-point base grid (2026-10-29). Benchmarks score these
+# by default; evaluate_elo.py --full-grid re-searches PARAM_GRIDS (update these after).
+PINNED = {
+    "player_round_glicko": {
+        "k": 32,
+        "tau": 0.5,
+        "rd_new": 350,
+        "rd_info": 0.125,
+        "new_player": "teammates",
+    }
+}
+
+for variant in ("rookie", "moves", "rookie_moves", "weights", "rookie_weights"):
     name = f"player_round_glicko_{variant}"
     MODELS[name] = partial(EloModel, unit="player", credit="round", rd=True)
     grid = {
-        "k": (32, 48),
-        "tau": (0.4, 0.5),
-        "rd_new": (280, 350),
-        "rd_info": (0.25,),
+        "k": (32,),
+        "tau": (0.5,),
+        "rd_new": (350,),
+        "rd_info": (0.125,),
         "new_player": ("teammates",),
     }
     if "rookie" in variant:
         grid.update(
-            k=(32,),
-            rd_new=(280,),
             rookie_penalty=(150, 200, 300, 400, 600),
             rookie_maps=(50, 100, 200, 400),
         )
     if "moves" in variant:
         grid.update(move_up_penalty=(50, 100, 200), move_down_bonus=(0, 50))
+    if "weights" in variant:
+        grid.update(online_k=(0.5, 0.75, 1.0), tier3_k=(0.5, 0.75, 1.0))
+    if variant == "rookie_weights":
+        grid.update(rookie_penalty=(200, 300, 400), rookie_maps=(100, 200, 400))
     PARAM_GRIDS[name] = grid

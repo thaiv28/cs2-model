@@ -95,7 +95,7 @@ def database(tmp_path):
     path = tmp_path / "tiny.db"
     with sqlite3.connect(path) as conn:
         conn.executescript("""
-            CREATE TABLE events(event_id PRIMARY KEY, section, international, region, excluded DEFAULT 0);
+            CREATE TABLE events(event_id PRIMARY KEY, section, international, region, excluded DEFAULT 0, online);
             CREATE TABLE teams(team_id PRIMARY KEY, name);
             CREATE TABLE matches(match_id PRIMARY KEY, event_id, start_utc, best_of, team1_id, team2_id, score1, score2, winner);
             CREATE TABLE maps(game_id PRIMARY KEY, match_id, "order", map, score1, score2);
@@ -103,7 +103,7 @@ def database(tmp_path):
             CREATE TABLE kalshi_markets(ticker, series, event_ticker, kind, competitor_id, open_time);
             CREATE TABLE team_aliases(competitor_id, liquipedia_team_id);
             CREATE TABLE kalshi_links(event_ticker, match_id, game_id, kind, method, reason);
-            INSERT INTO events VALUES (1, 'tier1', 1, NULL, 0), (99, 'unknown', 0, NULL, 0);
+            INSERT INTO events VALUES (1, 'tier1', 1, NULL, 0, 0), (99, 'unknown', 0, NULL, 0, NULL);
             INSERT INTO teams VALUES (10, 'A'), (20, 'B');
         """)
         for match_id, start, best_of, winner, wins in (
@@ -198,6 +198,10 @@ def test_load_series_and_market_pairing(database):
         assert list(maps.game_id) == [11, 21, 22, 23, 31, 32, 41, 51]
         assert set(maps[maps.match_id == 3].section) == {"unknown"}
         assert set(maps[maps.match_id == 3].international) == {0}
+        assert set(maps[maps.match_id == 3].online) == {1}
+        assert set(maps[maps.match_id == 2].online) == {0}
+        assert loaded.columns[-1] == "online"
+        assert loaded.online.dtype.kind in "iu"
         series = benchmark.series_rows(maps)
         assert list(series.match_id) == [1, 2, 4]
         first = maps[maps.match_id == 2].iloc[0]
@@ -1038,3 +1042,14 @@ def test_outcome_report_without_kalshi_tables(database, tmp_path, capsys):
     assert "Kalshi sections skipped: missing tables" in capsys.readouterr().out
     assert "#### Full-Kelly returns" not in report
     assert "## Holdout" not in report
+
+
+def test_pinned_grid_and_full_grid():
+    pinned = benchmark.PINNED["player_round_glicko"]
+    assert benchmark.parameter_grid("player_round_glicko") == [pinned]
+    assert [
+        p["k"] for p in benchmark.parameter_grid("player_round_glicko", (16, 24))
+    ] == [16, 24]
+    full = benchmark.parameter_grid("player_round_glicko", full=True)
+    assert len(full) == 640 and pinned in full
+    assert len(benchmark.parameter_grid("team_elo")) == 6
