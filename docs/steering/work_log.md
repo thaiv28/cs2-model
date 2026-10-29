@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words.
 
+## 2026-10-29 — First Kalshi validation (preliminary)
+
+Branch `ledger`, base `main` (4f689df). Ran `evaluate_elo.py --models team_elo,player_round_glicko --layers none` (320 s) with the Kalshi backfill ~40% done: player_round_glicko raw +0.0014 (n.s.), blended −0.0105 (significant) vs Kalshi's tradeable quote on 1,876 series; recorded in the research ledger. `docs/elo_backtest.md` not committed until the backfill completes. Checks: `uv run pytest -q`.
+
 ## 2026-10-29 — Benchmark reads Liquipedia alias column
 
 Branch `alias-col`, base `main` (491154a). The parallel ratings and linking branches disagreed: `evaluate_elo.py` read `team_aliases.vlr_team_id`, which the CS2 link step names `liquipedia_team_id`; the Kalshi stage crashed. Renamed in the benchmark and its test. Checks: `uv run pytest -q`, ruff format/check.
