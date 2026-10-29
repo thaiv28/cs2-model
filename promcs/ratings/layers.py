@@ -168,4 +168,55 @@ class RegionalLayer(Layer):
         )
 
 
-LAYERS = {"none": IdentityLayer, "regional": RegionalLayer}
+class CalibrationLayer(Layer):
+    name = "calibration"
+
+    def __init__(self, context=None):
+        super().__init__(context)
+        self.temperatures = {}
+        self.rows = {}
+
+    def fit(self, frame) -> None:
+        self.temperatures, self.rows = {}, {}
+        for group, positions in frame.groupby(["section", "online"]).indices.items():
+            self.rows[group] = len(positions)
+            temperature = 1.0
+            if len(positions) >= 300:
+                rows = frame.iloc[positions]
+                logits = _logit(rows.p)
+                beta = _fit_newton(
+                    logits[:, None],
+                    rows.won.to_numpy(dtype=float),
+                    logits,
+                    np.array([[4.0]]),
+                )
+                temperature += beta[0]
+            self.temperatures[group] = temperature
+
+    def apply(self, frame) -> pd.Series:
+        temperatures = np.array(
+            [
+                self.temperatures.get(group, 1.0)
+                for group in zip(frame.section, frame.online, strict=True)
+            ]
+        )
+        return pd.Series(
+            np.clip(_sigmoid(temperatures * _logit(frame.p)), 1e-6, 1 - 1e-6),
+            index=frame.index,
+            name="p",
+        )
+
+    def describe(self) -> str:
+        groups = "; ".join(
+            f"{section}/online={online}: rows={self.rows[(section, online)]}, "
+            f"T={temperature:.4f}"
+            for (section, online), temperature in self.temperatures.items()
+        )
+        return f"calibration: ridge=4; {groups}"
+
+
+LAYERS = {
+    "none": IdentityLayer,
+    "regional": RegionalLayer,
+    "calibration": CalibrationLayer,
+}

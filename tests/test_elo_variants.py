@@ -143,7 +143,7 @@ def test_region_offsets_only_cross_region_and_zero_sum():
 
 
 def test_registry_grids_and_v1_regression():
-    assert len(MODELS) == len(PARAM_GRIDS) == 18
+    assert len(MODELS) == len(PARAM_GRIDS) == 20
     assert "team_binary" not in MODELS
     for name in MODELS:
         if name == "coin":
@@ -434,25 +434,29 @@ def test_default_glicko_exact_pre_adjustment_predictions():
     assert model.map_counts == model.tier_counts == model.tier_homes == {}
 
 
-@pytest.mark.parametrize("variant", ["rookie", "moves", "rookie_moves"])
+@pytest.mark.parametrize(
+    "variant", ["rookie", "moves", "rookie_moves", "weights", "rookie_weights"]
+)
 def test_rookie_moves_registry_exact_grids(variant):
     name = f"player_round_glicko_{variant}"
     grid = {
-        "k": (32, 48),
-        "tau": (0.4, 0.5),
-        "rd_new": (280, 350),
-        "rd_info": (0.25,),
+        "k": (32,),
+        "tau": (0.5,),
+        "rd_new": (350,),
+        "rd_info": (0.125,),
         "new_player": ("teammates",),
     }
     if "rookie" in variant:
         grid.update(
-            k=(32,),
-            rd_new=(280,),
             rookie_penalty=(150, 200, 300, 400, 600),
             rookie_maps=(50, 100, 200, 400),
         )
     if "moves" in variant:
         grid.update(move_up_penalty=(50, 100, 200), move_down_bonus=(0, 50))
+    if "weights" in variant:
+        grid.update(online_k=(0.5, 0.75, 1.0), tier3_k=(0.5, 0.75, 1.0))
+    if variant == "rookie_weights":
+        grid.update(rookie_penalty=(200, 300, 400), rookie_maps=(100, 200, 400))
     assert PARAM_GRIDS[name] == grid
     model = MODELS[name](**{p: values[0] for p, values in grid.items()})
     assert model.unit == "player" and model.credit == "round" and model.rd
@@ -486,3 +490,67 @@ def test_teams_ignore_player_adjustments():
 def test_invalid_player_adjustment_parameters(options):
     with pytest.raises(ValueError, match="rookie/move"):
         EloModel(unit="player", **options)
+
+
+@pytest.mark.parametrize("rd", [False, True])
+def test_k_multipliers_one_exactly_preserve_replay(rd):
+    options = {"unit": "player", "credit": "round", "rd": rd}
+    legacy = EloModel(**options)
+    default = EloModel(**options)
+    explicit = EloModel(**options, online_k=1.0, tier3_k=1.0)
+    for i in range(12):
+        values = {
+            "game_id": i + 1,
+            "won": i % 2,
+            "score1": 13 if i % 2 else 7,
+            "score2": 7 if i % 2 else 13,
+        }
+        old_row = row(**values)
+        game = row(**values, online=i % 2, section=("tier1", "tier3")[i % 2])
+        assert (
+            legacy.predict(old_row) == default.predict(game) == explicit.predict(game)
+        )
+        legacy.update(old_row)
+        for model in (default, explicit):
+            model.update(game)
+            assert model.ratings == legacy.ratings
+            assert model.rd_variance == legacy.rd_variance
+
+
+@pytest.mark.parametrize(
+    "online,tier,ratio",
+    [(0, "tier1", 1), (1, "tier1", 0.5), (0, "tier3", 0.75), (1, "tier3", 0.375)],
+)
+def test_k_multipliers_scale_two_map_replay(online, tier, ratio):
+    import pandas as pd
+
+    from promcs.ratings.replay import replay
+
+    # Disjoint teams give both maps the same pre-update expectation.
+    maps = pd.DataFrame(
+        [
+            vars(row(game_id=1, match_id=1, order=1, online=0, section="tier1")),
+            vars(
+                row(
+                    game_id=2,
+                    match_id=2,
+                    order=1,
+                    team1_id=30,
+                    team2_id=40,
+                    online=online,
+                    section=tier,
+                )
+            ),
+        ]
+    )
+    model = EloModel(online_k=0.5, tier3_k=0.75)
+    replay(maps, model)
+    assert model.ratings[30] - 1500 == ratio * (model.ratings[10] - 1500)
+    assert 1500 - model.ratings[40] == ratio * (1500 - model.ratings[20])
+
+
+@pytest.mark.parametrize("parameter", ["online_k", "tier3_k"])
+@pytest.mark.parametrize("value", [0, -0.1, 2.01, float("inf"), float("nan")])
+def test_invalid_k_multipliers(parameter, value):
+    with pytest.raises(ValueError, match="online_k and tier3_k"):
+        EloModel(**{parameter: value})

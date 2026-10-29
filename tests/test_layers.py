@@ -6,7 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from promcs.ratings.layers import LAYERS, REGIONS, RegionalLayer, causal_features
+from promcs.ratings.layers import (
+    LAYERS,
+    REGIONS,
+    CalibrationLayer,
+    RegionalLayer,
+    causal_features,
+)
 
 
 def planted(n=10000):
@@ -85,7 +91,7 @@ def test_causal_homes_and_excluded_events():
     assert features.index.tolist() == [1, 2, 3, 4, 6, 7]
     assert features.home1.tolist() == [None, "NA", "NA", "NA", "NA", "NA"]
     assert features.home1.tolist() == features.home2.tolist()
-    assert set(LAYERS) == {"none", "regional"}
+    assert set(LAYERS) == {"none", "regional", "calibration"}
     conn.close()
 
 
@@ -101,3 +107,52 @@ def test_regional_frozen_outcomes():
     layer.fit(frame.iloc[:700])
     assert layer.describe() == description
     pd.testing.assert_series_equal(before, layer.apply(frame.iloc[700:]))
+
+
+def test_calibration_recovery_threshold_and_frozen_groups():
+    rng = np.random.default_rng(38)
+    logits = rng.normal(0, 2, 10000)
+    frame = pd.DataFrame(
+        {
+            "p": 1 / (1 + np.exp(-logits)),
+            "won": sample(rng, 0.7 * logits),
+            "section": "tier1",
+            "online": 0,
+        }
+    )
+    small = frame.iloc[:299].assign(section="tier3", online=1)
+    layer = CalibrationLayer()
+    layer.fit(pd.concat([frame, small], ignore_index=True))
+    assert layer.temperatures[("tier1", 0)] == pytest.approx(0.7, abs=0.04)
+    assert layer.temperatures[("tier3", 1)] == 1
+    assert "tier1/online=0: rows=10000, T=" in layer.describe()
+    assert "tier3/online=1: rows=299, T=1.0000" in layer.describe()
+    expected = 1 / (1 + np.exp(-layer.temperatures[("tier1", 0)] * logits))
+    np.testing.assert_allclose(layer.apply(frame), expected)
+    np.testing.assert_allclose(layer.apply(small), small.p)
+    unseen = small.assign(section="tier2")
+    np.testing.assert_allclose(layer.apply(unseen), unseen.p)
+    before = layer.apply(frame)
+    pd.testing.assert_series_equal(before, layer.apply(frame.assign(won=1 - frame.won)))
+    layer.fit(small)
+    assert layer.temperatures == {("tier3", 1): 1}
+
+
+def test_calibration_identity_index_clipping_and_threshold():
+    frame = pd.DataFrame(
+        {
+            "p": [0.1, 0.3, 0.8],
+            "won": [0, 1, 1],
+            "section": ["tier1", "tier2", "tier3"],
+            "online": [0, 1, 1],
+        },
+        index=[8, 3, 3],
+    )
+    layer = LAYERS["calibration"]()
+    layer.fit(frame)
+    pd.testing.assert_series_equal(layer.apply(frame), frame.p, check_exact=False)
+    extremes = frame.assign(p=[0, 1, 0.5])
+    np.testing.assert_allclose(layer.apply(extremes), [1e-6, 1 - 1e-6, 0.5])
+    threshold = pd.concat([frame.iloc[:1]] * 300, ignore_index=True)
+    layer.fit(threshold)
+    assert layer.temperatures[("tier1", 0)] != 1

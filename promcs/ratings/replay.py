@@ -12,7 +12,8 @@ def load_maps(conn) -> pd.DataFrame:
                   e.region, (g.score1 > g.score2) AS won,
                   m.best_of, m.event_id, COALESCE(e.section, 'unknown') AS section,
                   COALESCE(e.international, 0) AS international,
-                  (m.winner = 1) AS series_won
+                  (m.winner = 1) AS series_won,
+                  COALESCE(e.online, 1) AS online
            FROM maps g JOIN matches m USING (match_id)
            JOIN events e USING (event_id)
            WHERE g.score1 != g.score2 AND e.excluded = 0

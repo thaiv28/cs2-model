@@ -63,6 +63,8 @@ class EloModel:
         move_up_penalty=0.0,
         move_down_bonus=0.0,
         move_maps=20,
+        online_k=1.0,
+        tier3_k=1.0,
     ):
         if unit not in {"team", "player"} or credit not in {
             "binary",
@@ -74,6 +76,9 @@ class EloModel:
             raise ValueError("unknown new_player mode")
         if k <= 0 or c <= 0 or tau <= 0 or region_k < 0 or scale <= 0:
             raise ValueError("Elo parameters must be positive (region_k may be zero)")
+        if not (0 < online_k <= 2 and 0 < tier3_k <= 2):
+            raise ValueError("online_k and tier3_k must be in (0, 2]")
+        self.online_k, self.tier3_k = online_k, tier3_k
         self.rd = bool(rd and unit == "player")
         if self.rd and (
             not all(isfinite(v) for v in (rd_new, rd_floor, rd_growth, rd_info))
@@ -197,7 +202,12 @@ class EloModel:
     def update(self, row):
         a, b, home_a, home_b, expected = self._state(row)
         error = self.score(row) - expected
-        delta = self.k * error
+        k = self.k
+        if getattr(row, "online", False):
+            k *= self.online_k
+        if getattr(row, "section", None) == "tier3":
+            k *= self.tier3_k
+        delta = k * error
         if self.rd:
             date = row.start_utc
             if isinstance(date, str):
