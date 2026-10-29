@@ -80,6 +80,10 @@ def test_feed_storage_and_dispatch():
         "uv run promcs export --state data/feed/state.pkl.gz --out data/feed/cs2.json"
         in text
     )
+    assert (
+        'aws s3 cp data/feed/candidates.json "s3://$BUCKET/cs2-model/feed/candidates.json" --content-type application/json --only-show-errors'
+        in text
+    )
     assert "gzip -9 -c" in text
     assert "s3://$BUCKET/cs2-model/feed/cs2.json.gz" in text
     assert "--content-type application/json" in text

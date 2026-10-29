@@ -8,7 +8,7 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 
 | Path | Purpose |
 |---|---|
-| `promcs/main.py` | CLI entry; mounts `kalshi`, `liquipedia`, `feed-state` and `export` |
+| `promcs/main.py` | CLI entry; mounts `kalshi`, `liquipedia`, `feed-state`, `blend-artifact` and `export` |
 | `promcs/kalshi/api.py` | Public HTTP client, pacing, retries and pagination |
 | `promcs/kalshi/collect.py` | Raw catalog, trade, candle and book files |
 | `promcs/liquipedia/` | Rate-limited API queries, incremental raw cache and CLI |
@@ -16,6 +16,8 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 | `promcs/liquipedia/regions.py` | Tournament host country → macro region |
 | `promcs/feed.py`, `promcs/quotes.py` | Site feed orchestration, frozen calls and shared candle rules |
 | `promcs/ratings/elo_weights.json` | Existing stage-1 fit and string-keyed series temperatures |
+| `promcs/trading.py`, `benchmark.py`, `blend_artifact.json` | Private candidates, shared benchmark rows and frozen blend fits |
+| `tests/test_trading.py` | Causal fits and execution contract checks |
 | `tests/test_feed.py` | Offline feed, schedule, freeze, join and market checks |
 | `promcs/ratings/` | Team/player Elo, round conversion, chronological replay, regional layers |
 | `promcs/evaluation.py`, `backtest.py`, `blend.py` | Scoring, match bootstrap, execution simulation, causal market blend |
@@ -102,6 +104,10 @@ Returns buy the greater positive after-fee edge. Fees round up to cents per orde
 Layers retain fit/apply/describe factories with connection/lineup context. --layers none defaults to identity. regional fits logit(p′)=s·logit(p)+e[home1]−e[home2] on stage-1 cross-region rows, seven zero-sum effects with ridge 4; fewer than 50 eligible rows is identity. Homes are causal; validation outcomes never fit layers. Calibration fits tier×online logit temperatures on stage 1 with ridge 4 toward T=1; groups below 300 rows stay identity. Outputs clip to [1e-6,1−1e-6]. No form layer: CS2 player_maps has no per-player statistics.
 
 ## Site feed
+
+`promcs blend-artifact` writes `promcs/blend_artifact.json`: adopted-model benchmark series odds with stored stage-1 temperatures and tradeable quotes, oriented to team1. Monthly no-intercept fits from 2026-01-01 require 300 earlier series; no holdout exclusion. Prometheus packages a copy of this frozen artifact.
+
+`export --candidates PATH` also atomically writes private `data/feed/candidates.json`, raw six-decimal series chances keyed by validated Kalshi rules names, with provenance. Only future upcoming known-best-of matches linked to both open contracts qualify; rules starts must agree within 18 hours of our start. All groups are `cs2-series`; Prometheus handles blending, edge, sizing and orders. `--no-fetch` emits no candidates.
 
 `promcs feed-state` builds `feed/state.pkl.gz`: atomic gzip-6 pickle, version 1, replayed model/rated teams, temperatures, reconstructed finals/closes, match joins, lookups/aliases and data-through. Load only trusted internal snapshots; incompatible versions fail. `promcs export --state PATH` bypasses SQLite and candles; the DB wrapper remains available.
 

@@ -18,7 +18,7 @@ Each runner should download only `manifest.json`; a missing manifest should fail
 
 `refresh-db.yml` crawls incrementally, rebuilds SQLite and uploads a versioned ratings snapshot hourly. `feed.yml` loads it without a DB, refreshes schedule/prices and publishes every 10 minutes. cron-job.org dispatches both on main; GitHub schedules (`41 * * * *`, `7 * * * *`) are hourly backups. Both allow manual dispatch, serialize without cancellation and use OIDC in us-west-2.
 
-S3 keys under `cs2-model/`: `feed/{state.pkl.gz,predictions.json,cs2.json.gz,upcoming/}`, `liquipedia/` and `kalshi/`. Seed the raw caches in S3 once before refresh; Kalshi books are excluded from runner downloads. Actions caches accelerate raw restores; S3 tops them up. Feed logs use conditional ETag writes; concurrent changes skip saving. Snapshot download failure requires refresh-db first.
+S3 keys under `cs2-model/`: `feed/{state.pkl.gz,predictions.json,cs2.json.gz,upcoming/}`, `liquipedia/` and `kalshi/`. `cs2-model/feed/candidates.json` is private, read by Prometheus’s execution Lambda and uploaded after each public feed. Seed the raw caches in S3 once before refresh; Kalshi books are excluded from runner downloads. Actions caches accelerate raw restores; S3 tops them up. Feed logs use conditional ETag writes; concurrent changes skip saving. Snapshot download failure requires refresh-db first.
 
 Set `PROMETHEUS_DISPATCH_TOKEN` to dispatch `thaiv28/Prometheus`'s `games.yml`; absent tokens skip dispatch and dispatch failures do not fail publication. Workflows have not run on GitHub; runner times remain unmeasured.
 

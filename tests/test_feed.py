@@ -169,6 +169,10 @@ def test_no_fetch_cache_and_pruning(database, tmp_path):
         kalshi_fetcher=forbidden,
     )
     assert any(r["status"] == "upcoming" for r in feed["matches"])
+    assert (
+        json.loads((tmp_path / "data/feed/candidates.json").read_text())["matches"]
+        == []
+    )
     run(database, tmp_path)
     assert json.loads((tmp_path / "data/predictions.json").read_text()) == {}
 
@@ -243,7 +247,7 @@ def test_fetch_batches_pagination_and_current_price(database, tmp_path):
                     "ticker": f"KXCS2GAME-TEST-{side}",
                     "event_ticker": "KXCS2GAME-TEST",
                     "yes_sub_title": "Alpha" if side == 1 else "Beta",
-                    "rules_primary": "If Alpha wins the Test: Alpha vs Beta CS2 match originally scheduled for Oct 30, 2026 at 8:00 AM EDT, then Yes.",
+                    "rules_primary": f"If {'Alpha' if side == 1 else 'Beta'} wins the Test: Alpha vs Beta CS2 match originally scheduled for Oct 30, 2026 at 8:00 AM EDT, then Yes.",
                     "yes_bid_dollars": "0.60",
                     "yes_ask_dollars": "0.64",
                 }
@@ -263,6 +267,12 @@ def test_fetch_batches_pagination_and_current_price(database, tmp_path):
     assert [q["cursor"] for q in k_queries] == [None, "next"]
     upcoming = next(r for r in feed["matches"] if r["status"] == "upcoming")
     assert upcoming["market"]["p"] == 0.62
+    private = json.loads((tmp_path / "data/feed/candidates.json").read_text())
+    saved = private["matches"][0]["execution_candidate"]
+    assert saved["teams"] == ["Alpha", "Beta"]
+    assert saved["start"] == "2026-10-30T12:00Z"
+    assert saved["provenance"]["match_id"] == upcoming["match_id"]
+    assert saved["raw"]["Alpha"] == round(saved["provenance"]["p_series"], 6)
     with gzip.open(tmp_path / "data/upcoming/latest.json.gz", "rt") as handle:
         assert len(json.load(handle)) == 2
 
@@ -395,9 +405,20 @@ def test_snapshot_cli_never_opens_db(database, tmp_path, monkeypatch):
     monkeypatch.setattr(sqlite3, "connect", forbidden)
     out = tmp_path / "feed.json"
     result = CliRunner().invoke(
-        app, ["export", "--state", str(path), "--out", str(out), "--no-fetch"]
+        app,
+        [
+            "export",
+            "--state",
+            str(path),
+            "--out",
+            str(out),
+            "--no-fetch",
+            "--candidates",
+            str(tmp_path / "private.json"),
+        ],
     )
     assert result.exit_code == 0, result.output
+    assert json.loads((tmp_path / "private.json").read_text())["matches"] == []
     actual = json.loads(out.read_text())
     actual.pop("generated")
     expected.pop("generated")

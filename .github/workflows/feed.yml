@@ -46,6 +46,7 @@ jobs:
         run: |
           gzip -9 -c data/feed/cs2.json > data/feed/cs2.json.gz
           aws s3 cp data/feed/cs2.json.gz "s3://$BUCKET/cs2-model/feed/cs2.json.gz" --content-type application/json --only-show-errors
+          aws s3 cp data/feed/candidates.json "s3://$BUCKET/cs2-model/feed/candidates.json" --content-type application/json --only-show-errors
       - run: bash scripts/feed_data.sh save
       - run: aws s3 sync data/upcoming "s3://$BUCKET/cs2-model/feed/upcoming" --only-show-errors
       - name: Dispatch Prometheus

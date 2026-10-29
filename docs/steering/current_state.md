@@ -2,6 +2,8 @@
 
 ## Status
 
+Frozen monthly blend coefficients and private `cs2-series` execution candidates are implemented; the feed job uploads inputs for Prometheus’s execution Lambda.
+
 Hourly `refresh-db.yml` and 10-minute `feed.yml` are implemented for S3 snapshot/publication and optional Prometheus dispatch (cron-job.org; hourly GitHub backups). Offline snapshot equality is tested; GitHub runs/timings remain unverified and raw S3 caches need initial seeding.
 
 `promcs export` writes the site feed with frozen calls, replayed results and Kalshi prices; `--no-fetch` runs offline. Ratings require a fresh crawl + setup_db; only DB tournaments are scanned; TBD sides are omitted.

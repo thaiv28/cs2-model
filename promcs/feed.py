@@ -135,25 +135,39 @@ def market_url(ticker):
     return "https://kalshi.com/markets/kxcs2game/" + ticker.lower()
 
 
-def current_prices(raw, candidates, aliases, now):
+def linked_current_markets(raw, candidates, aliases):
+    """Retain raw linked contracts in our team order for prices and execution."""
     events = events_from_markets([market_row(m, "KXCS2GAME") for m in raw])
     linked = link(events, candidates, initial_aliases=aliases)
     by_event = {e.event_ticker: e for e in events}
     by_ticker = {m["ticker"]: m for m in raw}
     by_id = {m["match_id"]: m for m in candidates}
-    prices = {}
+    pairs = {}
     for result in linked.links:
         if result.match_id is None or result.reason:
             continue
-        team1 = by_id[result.match_id]["team1_id"]
+        match = by_id[result.match_id]
         options = sorted(
             zip(by_event[result.event_ticker].markets, result.team_ids),
-            key=lambda pair: pair[1] != team1,
+            key=lambda pair: pair[1] != match["team1_id"],
         )
-        for market, tid in options:
-            if tid not in (team1, by_id[result.match_id]["team2_id"]):
-                continue
-            source = by_ticker[market["ticker"]]
+        pairs[result.match_id] = [
+            by_ticker[market["ticker"]]
+            for market, tid in options
+            if tid in (match["team1_id"], match["team2_id"])
+        ]
+    return pairs
+
+
+def current_prices(raw, candidates, aliases, now, *, linked=None):
+    pairs = (
+        linked
+        if linked is not None
+        else linked_current_markets(raw, candidates, aliases)
+    )
+    prices = {}
+    for mid, pair in pairs.items():
+        for side, source in enumerate(pair):
             try:
                 bid, ask = (
                     float(source.get(k) or 0)
@@ -163,11 +177,11 @@ def current_prices(raw, candidates, aliases, now):
                 continue
             if not (0 < bid <= ask <= 1 and ask - bid <= 0.10 + 1e-9):
                 continue
-            mid = (bid + ask) / 2
-            prices[result.match_id] = {
-                "p": mid if tid == team1 else 1 - mid,
+            price = (bid + ask) / 2
+            prices[mid] = {
+                "p": price if side == 0 else 1 - price,
                 "at": stamp(now),
-                "url": market_url(result.event_ticker),
+                "url": market_url(source["event_ticker"]),
             }
             break
     return prices
@@ -361,6 +375,7 @@ def export(
     *,
     db=Path("db/cs2.db"),
     out=None,
+    candidates_path=None,
     data=None,
     no_fetch=False,
     now=None,
@@ -539,7 +554,7 @@ def export(
                     "team2_key": teams.get(call["team2_id"], {}).get("key", ""),
                 }
             )
-    prices = {}
+    prices, linked = {}, {}
     if not no_fetch:
         client = Client()
         fetch = kalshi_fetcher or (lambda **kw: client.json("/markets", **kw))
@@ -552,7 +567,19 @@ def export(
             cursor = response.get("cursor")
             if not cursor or not response["markets"]:
                 break
-        prices = current_prices(raw, candidates, aliases, now)
+        linked = linked_current_markets(raw, candidates, aliases)
+        prices = current_prices(raw, candidates, aliases, now, linked=linked)
+    from promcs.trading import candidates as execution_candidates
+
+    private = execution_candidates(
+        rows, linked, now, data_through=state["data_through"], skipped=skipped
+    )
+    atomic(
+        Path(candidates_path)
+        if candidates_path is not None
+        else root / "feed/candidates.json",
+        private,
+    )
     for row in rows:
         if row["match_id"] in prices:
             row["market"] = prices[row["match_id"]]
@@ -583,6 +610,6 @@ def export(
     atomic(out, feed)
     counts = Counter(r["status"] for r in rows)
     print(
-        f"upcoming={counts['upcoming']} live={counts['live']} final={counts['final']} kalshi_priced={sum(r['market'] is not None for r in rows)} skipped_unrated={skipped['unrated']} skipped_tbd={skipped['tbd']} pages_fetched={fetched} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
+        f"upcoming={counts['upcoming']} live={counts['live']} final={counts['final']} kalshi_priced={sum(r['market'] is not None for r in rows)} candidates={len(private['matches'])} skipped_candidates={skipped['candidates']} skipped_unrated={skipped['unrated']} skipped_tbd={skipped['tbd']} pages_fetched={fetched} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
     )
     return feed
