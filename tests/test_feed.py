@@ -6,6 +6,7 @@ import re
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.error import HTTPError
 
 import pytest
 from test_liquipedia_db import loader, match, record
@@ -175,6 +176,27 @@ def test_no_fetch_cache_and_pruning(database, tmp_path):
     )
     run(database, tmp_path)
     assert json.loads((tmp_path / "data/predictions.json").read_text()) == {}
+
+
+def test_rate_limited_fetch_uses_cached_schedule(database, tmp_path, capsys):
+    def limited(**kw):
+        raise HTTPError("https://liquipedia.net", 429, "Too Many Requests", {}, None)
+
+    def export_limited():
+        return export(
+            db=database,
+            data=tmp_path / "data",
+            now=NOW,
+            liquipedia_fetcher=limited,
+            kalshi_fetcher=lambda **kw: {"markets": [], "cursor": ""},
+        )
+
+    with pytest.raises(HTTPError):
+        export_limited()
+    run(database, tmp_path, scheduled())
+    feed = export_limited()
+    assert any(r["status"] == "upcoming" for r in feed["matches"])
+    assert "liquipedia_stale=1" in capsys.readouterr().out
 
 
 def test_current_market_orientation_spread_and_aliases():

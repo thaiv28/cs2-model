@@ -14,6 +14,7 @@ from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.error import URLError
 from urllib.parse import quote
 
 from promcs.evaluation import series_probability
@@ -410,23 +411,32 @@ def export(
         and e["start_date"] <= (now + timedelta(days=7)).date().isoformat()
         and e["end_date"] >= (now - timedelta(days=1)).date().isoformat()
     )
-    responses, fetched = [], 0
+    responses, fetched, stale = [], 0, False
     if not no_fetch:
         fetch = liquipedia_fetcher or Fetcher().query
-        for offset in range(0, len(titles), 50):
-            batch = titles[offset : offset + 50]
-            responses.append(
-                fetch(
-                    action="query",
-                    prop="revisions",
-                    titles="|".join(batch),
-                    rvprop="ids|timestamp|content",
-                    rvslots="main",
+        try:
+            for offset in range(0, len(titles), 50):
+                batch = titles[offset : offset + 50]
+                responses.append(
+                    fetch(
+                        action="query",
+                        prop="revisions",
+                        titles="|".join(batch),
+                        rvprop="ids|timestamp|content",
+                        rvslots="main",
+                    )
                 )
-            )
-            fetched += len(batch)
-        atomic(cache, responses, compressed=True)
-    elif cache.exists():
+                fetched += len(batch)
+        except (URLError, TimeoutError) as exc:
+            # Liquipedia can rate-limit shared runner IPs past the fetcher's
+            # retries; the last good schedule beats a failed feed.
+            if not cache.exists():
+                raise
+            print(f"Liquipedia fetch failed ({exc}); using cached schedule")
+            responses, fetched, stale = [], 0, True
+        else:
+            atomic(cache, responses, compressed=True)
+    if (no_fetch or stale) and cache.exists():
         with gzip.open(cache, "rt") as handle:
             responses = json.load(handle)
     skipped = Counter()
@@ -610,6 +620,6 @@ def export(
     atomic(out, feed)
     counts = Counter(r["status"] for r in rows)
     print(
-        f"upcoming={counts['upcoming']} live={counts['live']} final={counts['final']} kalshi_priced={sum(r['market'] is not None for r in rows)} candidates={len(private['matches'])} skipped_candidates={skipped['candidates']} skipped_unrated={skipped['unrated']} skipped_tbd={skipped['tbd']} pages_fetched={fetched} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
+        f"upcoming={counts['upcoming']} live={counts['live']} final={counts['final']} kalshi_priced={sum(r['market'] is not None for r in rows)} candidates={len(private['matches'])} skipped_candidates={skipped['candidates']} skipped_unrated={skipped['unrated']} skipped_tbd={skipped['tbd']} pages_fetched={fetched} liquipedia_stale={int(stale)} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
     )
     return feed

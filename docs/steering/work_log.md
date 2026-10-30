@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-10-30 — feed: cached schedule when Liquipedia rate-limits
+
+Branch `liquipedia-429`, base `origin/main`. About 2 of 15 Site feed runs failed with Liquipedia `HTTP 429` after the fetcher's 75 s of retries. `promcs export` now falls back to the last raw snapshot (`upcoming/latest.json.gz`, restored from S3) on a URL/timeout error; the summary reports `liquipedia_stale=1`. A missing snapshot still fails. Checks: new feed test, full pytest, ruff.
+
 ## 2026-10-29 — refresh-db: fresh AWS login before uploads
 
 Branch `game-candidates`, base `main`. A long Valorant rebuild outlasted the hour-long OIDC session and its snapshot upload failed with `ExpiredToken`; this workflow now logs in to AWS again before the snapshot and artifact uploads too. Checks: workflow tests, YAML parse.
