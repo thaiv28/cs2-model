@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-10-30 — feed: pipefail on the export step
+
+Branch `pipefail`, base `origin/main`. The export step piped through `tee` under the default `bash -e`, so a crashed export passed and the upload step failed instead. The step now uses `shell: bash` (pipefail). Checks: full pytest, ruff, YAML parse.
+
 ## 2026-10-30 — feed: cached schedule when Liquipedia rate-limits
 
 Branch `liquipedia-429`, base `origin/main`. About 2 of 15 Site feed runs failed with Liquipedia `HTTP 429` after the fetcher's 75 s of retries. `promcs export` now falls back to the last raw snapshot (`upcoming/latest.json.gz`, restored from S3) on a URL/timeout error; the summary reports `liquipedia_stale=1`. A missing snapshot still fails. Checks: new feed test, full pytest, ruff.

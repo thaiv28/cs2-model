@@ -39,6 +39,7 @@ jobs:
       - run: bash scripts/feed_data.sh restore
       - run: aws s3 sync "s3://$BUCKET/cs2-model/feed/upcoming" data/upcoming --only-show-errors
       - name: Export feed
+        shell: bash  # pipefail: a failed export must fail this step, not the upload
         run: |
           uv run promcs export --state data/feed/state.pkl.gz --out data/feed/cs2.json | tee /tmp/export-summary
           tail -1 /tmp/export-summary >> "$GITHUB_STEP_SUMMARY"
