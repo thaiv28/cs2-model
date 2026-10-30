@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-10-29 — refresh-db: fresh AWS login before uploads
+
+Branch `game-candidates`, base `main`. A long Valorant rebuild outlasted the hour-long OIDC session and its snapshot upload failed with `ExpiredToken`; this workflow now logs in to AWS again before the snapshot and artifact uploads too. Checks: workflow tests, YAML parse.
+
 ## 2026-10-29 — refresh-db: no Liquipedia S3 listing on a cache hit
 
 Branch `game-candidates`, base `main`. The Liquipedia `aws s3 sync` from S3 now runs only on a raw-cache miss (only this workflow writes those objects, so a restored cache is current); Kalshi data, written by the collector, still syncs every run. Matches valorant-model, where the same listing took 7.5 min. Checks: workflow tests, YAML parse.

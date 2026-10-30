@@ -112,6 +112,11 @@ jobs:
           bash scripts/setup_db.sh
           echo "Rebuilt database" >> "$GITHUB_STEP_SUMMARY"
           echo "DB build: $((SECONDS - started)) seconds" >> "$GITHUB_STEP_SUMMARY"
+      # Builds can outlast the hour-long OIDC session; log in again for the uploads.
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-west-2
       - name: Build and upload ratings snapshot
         if: steps.skip.outputs.unchanged != 'true'
         env:
